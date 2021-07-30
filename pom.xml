@@ -80,6 +80,9 @@
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -125,13 +128,13 @@
             <!--<scope>provided</scope>-->
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-table -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table</artifactId>
-            <version>${flink.version}</version>
-            <!--<scope>provided</scope>-->
-        </dependency>
+        <!--&lt;!&ndash; https://mvnrepository.com/artifact/org.apache.flink/flink-table &ndash;&gt;-->
+        <!--<dependency>-->
+            <!--<groupId>org.apache.flink</groupId>-->
+            <!--<artifactId>flink-table</artifactId>-->
+            <!--<version>${flink.version}</version>-->
+            <!--&lt;!&ndash;<scope>provided</scope>&ndash;&gt;-->
+        <!--</dependency>-->
 
         <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-json -->
         <dependency>
@@ -187,15 +190,12 @@
                     <artifactId>zookeeper</artifactId>
                     <groupId>org.apache.zookeeper</groupId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>jdk.tools</artifactId>
+                    <groupId>jdk.tools</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
-
-        <!--<dependency>-->
-            <!--<groupId>org.apache.flink</groupId>-->
-            <!--<artifactId>flink-table-api-java-bridge_2.11</artifactId>-->
-            <!--<version>${flink.version}</version>-->
-            <!--&lt;!&ndash;<scope>provided</scope>&ndash;&gt;-->
-        <!--</dependency>-->
 
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
@@ -245,8 +245,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
-
     </dependencies>
 
 

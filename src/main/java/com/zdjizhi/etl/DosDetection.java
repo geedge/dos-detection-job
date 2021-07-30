@@ -27,43 +27,47 @@ public class DosDetection extends BroadcastProcessFunction<DosSketchLog, Map<Str
 
     private static final Logger logger = LoggerFactory.getLogger(DosDetection.class);
 
-    private final static int BASELINESIZE = 144;
+    private final static int BASELINE_SIZE = 144;
 
-    private final static NumberFormat PERCENTINSTANCE = NumberFormat.getPercentInstance();
+    private final static NumberFormat PERCENT_INSTANCE = NumberFormat.getPercentInstance();
 
     @Override
     public void open(Configuration parameters) {
-        PERCENTINSTANCE.setMinimumFractionDigits(2);
+        PERCENT_INSTANCE.setMinimumFractionDigits(2);
     }
 
     @Override
     public void processElement(DosSketchLog value, ReadOnlyContext ctx, Collector<DosEventLog> out) throws Exception {
-        Map<String, Map<String, List<Integer>>> broadcast = ctx.getBroadcastState(OutputStreamSink.descriptor).get("broadcast-state");
-        String destinationIp = value.getDestination_ip();
-        String attackType = value.getAttack_type();
-        logger.info("当前判断数据：{}",value.toString());
-        if (broadcast.containsKey(destinationIp)){
-            List<Integer> baseline = broadcast.get(destinationIp).get(attackType);
-            if (baseline != null && baseline.size() == BASELINESIZE){
-                int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
-                Integer base = baseline.get(timeIndex);
-                long sketchSessions = value.getSketch_sessions();
-                long diff = sketchSessions - base;
-                if (diff > 0){
-                    String percent = getDiffPercent(diff, sketchSessions);
-                    double diffPercentDouble = getDiffPercentDouble(percent);
-                    Severity severity = judgeSeverity(diffPercentDouble);
-                    if (severity != Severity.NORMAL){
-                        DosEventLog result = getResult(value, severity, percent);
-                        logger.info("检测到当前server IP {} 存在异常,日志详情 {}",destinationIp,result.toString());
-                        out.collect(result);
-                    }else {
-                        logger.info("当前server IP：{} 未出现异常,日志详情 {}",destinationIp,value.toString());
+        try {
+            Map<String, Map<String, List<Integer>>> broadcast = ctx.getBroadcastState(OutputStreamSink.descriptor).get("broadcast-state");
+            String destinationIp = value.getDestination_ip();
+            String attackType = value.getAttack_type();
+            logger.info("当前判断IP：{}, 类型: {}",destinationIp,attackType);
+            if (broadcast.containsKey(destinationIp)){
+                List<Integer> baseline = broadcast.get(destinationIp).get(attackType);
+                if (baseline != null && baseline.size() == BASELINE_SIZE){
+                    int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
+                    Integer base = baseline.get(timeIndex);
+                    long sketchSessions = value.getSketch_sessions();
+                    long diff = sketchSessions - base;
+                    if (diff > 0){
+                        String percent = getDiffPercent(diff, sketchSessions);
+                        double diffPercentDouble = getDiffPercentDouble(percent);
+                        Severity severity = judgeSeverity(diffPercentDouble);
+                        if (severity != Severity.NORMAL){
+                            DosEventLog result = getResult(value, severity, percent);
+                            logger.info("检测到当前server IP {} 存在 {} 异常,日志详情\n {}",destinationIp,attackType,result.toString());
+                            out.collect(result);
+                        }else {
+                            logger.info("当前server IP：{} 未出现 {} 异常,日志详情 {}",destinationIp,attackType,value.toString());
+                        }
                     }
                 }
+            }else {
+                logger.info("未获取到当前server IP：{} 类型 {} baseline数据",destinationIp,attackType);
             }
-        }else {
-            logger.info("未获取到当前server IP：{} baseline数据",destinationIp);
+        }catch (Exception e){
+            logger.error("判定失败\n {} \n{}",value,e);
         }
     }
 
@@ -82,9 +86,8 @@ public class DosDetection extends BroadcastProcessFunction<DosSketchLog, Map<Str
 //        strings.add("153.146.241.196");
 //        strings.add("132.46.241.21");
 //        String join = StringUtils.join(strings, ",");
-        System.out.println(dosDetection.getCurrentTimeIndex(1627378879));
+        System.out.println(IpUtils.ipLookup.countryLookup("192.168.50.150"));
 
-        System.out.println();
     }
 
     private DosEventLog getResult(DosSketchLog value,Severity severity,String percent){
@@ -128,11 +131,11 @@ public class DosDetection extends BroadcastProcessFunction<DosSketchLog, Map<Str
     private String getDiffPercent(long diff,long sketchSessions){
         double diffDou = Double.parseDouble(Long.toString(diff));
         double sessDou = Double.parseDouble(Long.toString(sketchSessions));
-        return PERCENTINSTANCE.format(diffDou / sessDou);
+        return PERCENT_INSTANCE.format(diffDou / sessDou);
     }
 
     private double getDiffPercentDouble(String diffPercent) throws ParseException {
-        return PERCENTINSTANCE.parse(diffPercent).doubleValue();
+        return PERCENT_INSTANCE.parse(diffPercent).doubleValue();
     }
 
     private Severity judgeSeverity(double diffPercent){

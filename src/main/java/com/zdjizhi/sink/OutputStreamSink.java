@@ -39,26 +39,35 @@ public class OutputStreamSink {
             new MapTypeInfo<>(String.class, new MapTypeInfo<>(String.class, (Class<List<Integer>>) (Class<?>) List.class).getTypeClass()));
 
     public static void finalOutputSink(){
-        DosEventSink.dosEventOutputSink(getOutputSinkStream());
-        TrafficServerIpMetricsSink.sideOutputMetricsSink(getMiddleStream());
+        try {
+            SingleOutputStreamOperator<DosSketchLog> middleStream = getMiddleStream();
+            SingleOutputStreamOperator<DosEventLog> dosEventLogOutputStream = getOutputSinkStream(middleStream);
+            DosEventSink.dosEventOutputSink(dosEventLogOutputStream);
+            TrafficServerIpMetricsSink.sideOutputMetricsSink(middleStream);
+            FlinkEnvironmentUtils.streamExeEnv.execute(CommonConfig.STREAM_EXECUTION_JOB_NAME);
+        } catch (Exception e) {
+            logger.error("");
+        }
     }
 
     public static void main(String[] args) throws Exception {
-        SingleOutputStreamOperator<DosEventLog> dosEventLogOutputStream = getOutputSinkStream();
+        SingleOutputStreamOperator<DosSketchLog> middleStream = getMiddleStream();
+        SingleOutputStreamOperator<DosEventLog> dosEventLogOutputStream = getOutputSinkStream(middleStream);
         DosEventSink.dosEventOutputSink(dosEventLogOutputStream);
-        TrafficServerIpMetricsSink.sideOutputMetricsSink(getMiddleStream());
+        TrafficServerIpMetricsSink.sideOutputMetricsSink(middleStream);
         dosEventLogOutputStream.print();
         FlinkEnvironmentUtils.streamExeEnv.execute();
     }
 
-    private static SingleOutputStreamOperator<DosEventLog> getOutputSinkStream(){
+    private static SingleOutputStreamOperator<DosEventLog> getOutputSinkStream(SingleOutputStreamOperator<DosSketchLog> middleStream){
 
         BroadcastStream<Map<String, Map<String,List<Integer>>>> broadcast = FlinkEnvironmentUtils.streamExeEnv
                 .addSource(new BaselineSource())
                 .broadcast(descriptor);
         logger.info("广播变量加载成功！！");
 
-        return getMiddleStream().keyBy(new SecondKeySelector())
+        return middleStream.keyBy(new SecondKeySelector())
+//                .window(TumblingEventTimeWindows.of(Time.seconds(CommonConfig.FLINK_WINDOW_MAX_TIME)))
                 .reduce(new SecondReduceFunc())
                 .connect(broadcast)
                 .process(new DosDetection());
