@@ -13,7 +13,7 @@ public class DosSketchSource {
 
     private static StreamExecutionEnvironment streamExeEnv = FlinkEnvironmentUtils.streamExeEnv;
 
-    public static DataStreamSource<String> createDosSketchSourceByDatastream(){
+    public static DataStreamSource<String> createDosSketchSource(){
         Properties properties = new Properties();
         properties.setProperty("bootstrap.servers", CommonConfig.KAFKA_INPUT_BOOTSTRAP_SERVERS);
         properties.setProperty("group.id", CommonConfig.KAFKA_GROUP_ID);

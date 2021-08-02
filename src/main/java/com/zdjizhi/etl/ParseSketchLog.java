@@ -22,13 +22,11 @@ public class ParseSketchLog {
     private static Logger logger = LoggerFactory.getLogger(ParseSketchLog.class);
 
     public static SingleOutputStreamOperator<DosSketchLog> getSketchSource(){
-        return flatSketchSource();
+        return flatSketchSource().assignTimestampsAndWatermarks(createWatermarkStrategy());
     }
 
     private static SingleOutputStreamOperator<DosSketchLog> flatSketchSource(){
-        return DosSketchSource.createDosSketchSourceByDatastream()
-                .flatMap(new flatSketchLog())
-                .assignTimestampsAndWatermarks(createWatermarkStrategy());
+        return DosSketchSource.createDosSketchSource().flatMap(new flatSketchLog());
     }
 
     private static WatermarkStrategy<DosSketchLog> createWatermarkStrategy(){

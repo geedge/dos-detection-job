@@ -63,6 +63,7 @@ public class OutputStreamSink {
 
         BroadcastStream<Map<String, Map<String,List<Integer>>>> broadcast = FlinkEnvironmentUtils.streamExeEnv
                 .addSource(new BaselineSource())
+                .setParallelism(CommonConfig.HBASE_INPUT_PARALLELISM)
                 .broadcast(descriptor);
         logger.info("广播变量加载成功！！");
 
@@ -70,14 +71,16 @@ public class OutputStreamSink {
 //                .window(TumblingEventTimeWindows.of(Time.seconds(CommonConfig.FLINK_WINDOW_MAX_TIME)))
                 .reduce(new SecondReduceFunc())
                 .connect(broadcast)
-                .process(new DosDetection());
+                .process(new DosDetection())
+                .setParallelism(CommonConfig.FLINK_SECOND_AGG_PARALLELISM);
     }
 
     private static SingleOutputStreamOperator<DosSketchLog> getMiddleStream(){
         return ParseSketchLog.getSketchSource()
                 .keyBy(new FirstKeySelector())
                 .window(TumblingEventTimeWindows.of(Time.seconds(CommonConfig.FLINK_WINDOW_MAX_TIME)))
-                .process(new EtlProcessFunction());
+                .process(new EtlProcessFunction())
+                .setParallelism(CommonConfig.FLINK_FIRST_AGG_PARALLELISM);
     }
 
     private static String groupUniqSourceIp(String sourceIp1,String sourceIp2){
