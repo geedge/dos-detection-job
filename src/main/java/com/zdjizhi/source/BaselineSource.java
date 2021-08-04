@@ -63,6 +63,7 @@ public class BaselineSource extends RichSourceFunction<Map<String, Map<String,Li
 
     @Override
     public void run(SourceContext<Map<String, Map<String,List<Integer>>>> sourceContext) throws Exception {
+        logger.info("开始读取baseline数据");
         ResultScanner rs = table.getScanner(scan);
 //        Map<String, List<Integer>[]> baselineMap = new HashMap<>();
         Map<String, Map<String,List<Integer>>> baselineMap = new HashMap<>();
@@ -70,9 +71,9 @@ public class BaselineSource extends RichSourceFunction<Map<String, Map<String,Li
             Map<String, List<Integer>> floodTypeMap = new HashMap<>();
             String rowkey = Bytes.toString(result.getRow());
             ArrayList<Integer> tcp = getArraylist(result,"TCP SYN Flood", "session_num");
-            ArrayList<Integer> udp = getArraylist(result,"UDP Flood", "b");
-            ArrayList<Integer> icmp = getArraylist(result,"ICMP Flood", "c");
-            ArrayList<Integer> dns = getArraylist(result,"DNS Amplification", "d");
+            ArrayList<Integer> udp = getArraylist(result,"UDP Flood", "session_num");
+            ArrayList<Integer> icmp = getArraylist(result,"ICMP Flood", "session_num");
+            ArrayList<Integer> dns = getArraylist(result,"DNS Amplification", "session_num");
             floodTypeMap.put("TCP SYN Flood",tcp);
             floodTypeMap.put("UDP Flood",udp);
             floodTypeMap.put("ICMP Flood",icmp);

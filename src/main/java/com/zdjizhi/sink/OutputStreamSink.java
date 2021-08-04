@@ -34,7 +34,7 @@ public class OutputStreamSink {
 
     public static OutputTag<DosMetricsLog> outputTag = new OutputTag<DosMetricsLog>("traffic server ip metrics"){};
 
-    public static MapStateDescriptor<String, Map<String, Map<String, List<Integer>>>> descriptor = new MapStateDescriptor<>("boradcast-state",
+    private static MapStateDescriptor<String, Map<String, Map<String, List<Integer>>>> descriptor = new MapStateDescriptor<>("boradcast-state",
             Types.STRING,
             new MapTypeInfo<>(String.class, new MapTypeInfo<>(String.class, (Class<List<Integer>>) (Class<?>) List.class).getTypeClass()));
 
@@ -46,7 +46,7 @@ public class OutputStreamSink {
             TrafficServerIpMetricsSink.sideOutputMetricsSink(middleStream);
             FlinkEnvironmentUtils.streamExeEnv.execute(CommonConfig.STREAM_EXECUTION_JOB_NAME);
         } catch (Exception e) {
-            logger.error("");
+            logger.error("任务启动失败 {}",e);
         }
     }
 

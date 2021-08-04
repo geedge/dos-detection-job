@@ -26,7 +26,7 @@ public class ParseSketchLog {
     }
 
     private static SingleOutputStreamOperator<DosSketchLog> flatSketchSource(){
-        return DosSketchSource.createDosSketchSource().flatMap(new flatSketchLog());
+        return DosSketchSource.createDosSketchSource().flatMap(new FlatSketchLog());
     }
 
     private static WatermarkStrategy<DosSketchLog> createWatermarkStrategy(){
@@ -35,7 +35,7 @@ public class ParseSketchLog {
                 .withTimestampAssigner((event, timestamp) -> event.getSketch_start_time() * 1000);
     }
 
-    private static class flatSketchLog implements FlatMapFunction<String, DosSketchLog> {
+    private static class FlatSketchLog implements FlatMapFunction<String, DosSketchLog> {
         @Override
         public void flatMap(String s, Collector<DosSketchLog> collector) throws Exception {
             try {
