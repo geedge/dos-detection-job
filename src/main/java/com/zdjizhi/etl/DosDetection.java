@@ -3,55 +3,53 @@ package com.zdjizhi.etl;
 import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosEventLog;
 import com.zdjizhi.common.DosSketchLog;
-import com.zdjizhi.sink.OutputStreamSink;
 import com.zdjizhi.utils.IpUtils;
 import com.zdjizhi.utils.SnowflakeId;
 import org.apache.commons.lang.StringUtils;
-import org.apache.flink.api.common.state.MapStateDescriptor;
-import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.java.typeutils.MapTypeInfo;
+import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
-import org.apache.flink.util.Collector;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Writable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.text.NumberFormat;
 import java.text.ParseException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-/**
- * @author wlh
- * DoS检测判断逻辑
- */
-public class DosDetection extends BroadcastProcessFunction<DosSketchLog, Map<String, Map<String, List<Integer>>>, DosEventLog> {
+public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
 
     private static final Logger logger = LoggerFactory.getLogger(DosDetection.class);
-
+    private Connection conn  = null;
+    private Table table  = null;
+    private Scan scan = null;
+    private Map<String, Map<String,List<Integer>>> baselineMap = new HashMap<>();
     private final static int BASELINE_SIZE = 144;
-
-    private static MapStateDescriptor<String, Map<String, Map<String, List<Integer>>>> descriptor = new MapStateDescriptor<>("boradcast-state",
-            Types.STRING,
-            new MapTypeInfo<>(String.class, new MapTypeInfo<>(String.class, (Class<List<Integer>>) (Class<?>) List.class).getTypeClass()));
-
     private final static NumberFormat PERCENT_INSTANCE = NumberFormat.getPercentInstance();
 
     @Override
-    public void open(Configuration parameters) {
+    public void open(Configuration parameters) throws Exception {
+        readFromHbase();
         PERCENT_INSTANCE.setMinimumFractionDigits(2);
     }
 
     @Override
-    public void processElement(DosSketchLog value, ReadOnlyContext ctx, Collector<DosEventLog> out) throws Exception {
+    public DosEventLog map(DosSketchLog value) throws Exception {
         try {
-            Map<String, Map<String, List<Integer>>> broadcast = ctx.getBroadcastState(descriptor).get("broadcast-state");
             String destinationIp = value.getDestination_ip();
             String attackType = value.getAttack_type();
-            logger.info("当前判断IP：{}, 类型: {}",destinationIp,attackType);
-            if (broadcast.containsKey(destinationIp)){
-                List<Integer> baseline = broadcast.get(destinationIp).get(attackType);
+            logger.debug("当前判断IP：{}, 类型: {}",destinationIp,attackType);
+            if (baselineMap.containsKey(destinationIp)){
+                List<Integer> baseline = baselineMap.get(destinationIp).get(attackType);
                 if (baseline != null && baseline.size() == BASELINE_SIZE){
                     int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
                     Integer base = baseline.get(timeIndex);
@@ -64,44 +62,77 @@ public class DosDetection extends BroadcastProcessFunction<DosSketchLog, Map<Str
                         if (severity != Severity.NORMAL){
                             DosEventLog result = getResult(value, severity, percent);
                             logger.info("检测到当前server IP {} 存在 {} 异常,日志详情\n {}",destinationIp,attackType,result.toString());
-                            out.collect(result);
+                            return result;
                         }else {
-                            logger.info("当前server IP：{} 未出现 {} 异常,日志详情 {}",destinationIp,attackType,value.toString());
+                            logger.debug("当前server IP：{} 未出现 {} 异常,日志详情 {}",destinationIp,attackType,value.toString());
                         }
                     }
                 }
             }else {
-                logger.info("未获取到当前server IP：{} 类型 {} baseline数据",destinationIp,attackType);
+                logger.debug("未获取到当前server IP：{} 类型 {} baseline数据",destinationIp,attackType);
             }
         }catch (Exception e){
             logger.error("判定失败\n {} \n{}",value,e);
         }
+        return null;
     }
 
-    @Override
-    public void processBroadcastElement(Map<String, Map<String, List<Integer>>> value, Context ctx, Collector<DosEventLog> out) {
-        try {
-            ctx.getBroadcastState(descriptor).put("broadcast-state", value);
-        }catch (Exception e){
-            logger.error("更新广播状态失败 {}",e);
+    private void prepareHbaseEnv() throws IOException {
+        org.apache.hadoop.conf.Configuration config = HBaseConfiguration.create();
+
+        config.set("hbase.zookeeper.quorum", CommonConfig.HBASE_ZOOKEEPER_QUORUM);
+        config.set("hbase.client.retries.number", "3");
+        config.set("hbase.bulkload.retries.number", "3");
+        config.set("zookeeper.recovery.retry", "3");
+        config.setInt(HConstants.HBASE_CLIENT_OPERATION_TIMEOUT, CommonConfig.HBASE_CLIENT_OPERATION_TIMEOUT);
+        config.setInt(HConstants.HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD, CommonConfig.HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD);
+
+        TableName tableName  = TableName.valueOf(CommonConfig.HBASE_BASELINE_TABLE_NAME);
+        conn = ConnectionFactory.createConnection(config);
+        table = conn.getTable(tableName);
+        scan = new Scan().setAllowPartialResults(true).setLimit(CommonConfig.HBASE_BASELINE_TOTAL_NUM);
+        logger.info("连接hbase成功，正在读取baseline数据");
+    }
+
+    private void readFromHbase() throws IOException {
+        prepareHbaseEnv();
+        logger.info("开始读取baseline数据");
+        ResultScanner rs = table.getScanner(scan);
+        for (Result result : rs) {
+            Map<String, List<Integer>> floodTypeMap = new HashMap<>();
+            String rowkey = Bytes.toString(result.getRow());
+            ArrayList<Integer> tcp = getArraylist(result,"TCP SYN Flood", "session_num");
+            ArrayList<Integer> udp = getArraylist(result,"UDP Flood", "session_num");
+            ArrayList<Integer> icmp = getArraylist(result,"ICMP Flood", "session_num");
+            ArrayList<Integer> dns = getArraylist(result,"DNS Amplification", "session_num");
+            floodTypeMap.put("TCP SYN Flood",tcp);
+            floodTypeMap.put("UDP Flood",udp);
+            floodTypeMap.put("ICMP Flood",icmp);
+            floodTypeMap.put("DNS Amplification",dns);
+            baselineMap.put(rowkey,floodTypeMap);
         }
+        logger.info("格式化baseline数据成功，读取IP共：{}",baselineMap.size());
     }
 
-    public static void main(String[] args) {
-        DosDetection dosDetection = new DosDetection();
-//        HashSet<String> strings = new HashSet<>();
-//        strings.add("13.46.241.36");
-//        strings.add("25.46.241.45");
-//        strings.add("133.46.241.53");
-//        strings.add("219.46.242.74");
-//        strings.add("153.146.241.196");
-//        strings.add("132.46.241.21");
-//        String join = StringUtils.join(strings, ",");
-//        System.out.println(IpUtils.ipLookup.countryLookup("192.168.50.150"));
-        System.out.println(Severity.CRITICAL.severity);
+    private static ArrayList<Integer> getArraylist(Result result,String family,String qualifier) throws IOException {
+        if (!result.containsColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier))){
+            return null;
+        }
+        ArrayWritable w = new ArrayWritable(IntWritable.class);
+        w.readFields(new DataInputStream(new ByteArrayInputStream(result.getValue(Bytes.toBytes(family), Bytes.toBytes(qualifier)))));
+        return fromWritable(w);
     }
 
-    private DosEventLog getResult(DosSketchLog value,Severity severity,String percent){
+    private static ArrayList<Integer> fromWritable(ArrayWritable writable) {
+        Writable[] writables = writable.get();
+        ArrayList<Integer> list = new ArrayList<>(writables.length);
+        for (Writable wrt : writables) {
+            list.add(((IntWritable)wrt).get());
+        }
+        return list;
+    }
+
+    private DosEventLog getResult(DosSketchLog value, Severity severity, String percent){
         DosEventLog dosEventLog = new DosEventLog();
         dosEventLog.setLog_id(SnowflakeId.generateId());
         dosEventLog.setStart_time(value.getSketch_start_time());
@@ -188,4 +219,5 @@ public class DosDetection extends BroadcastProcessFunction<DosSketchLog, Map<Str
         }
 
     }
+
 }

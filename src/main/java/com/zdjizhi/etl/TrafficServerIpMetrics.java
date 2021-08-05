@@ -21,7 +21,7 @@ class TrafficServerIpMetrics {
         dosMetricsLog.setSession_rate(midResuleLog.getSketch_sessions());
         dosMetricsLog.setPacket_rate(midResuleLog.getSketch_packets());
         dosMetricsLog.setBit_rate(midResuleLog.getSketch_bytes());
-        logger.info("metric 结果已加载：{}",dosMetricsLog.toString());
+        logger.debug("metric 结果已加载：{}",dosMetricsLog.toString());
         return dosMetricsLog;
     }
 

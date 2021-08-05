@@ -29,7 +29,7 @@ public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosS
         try {
             if (middleResult != null){
                 out.collect(middleResult);
-                logger.info("获取中间聚合结果：{}",middleResult.toString());
+                logger.debug("获取中间聚合结果：{}",middleResult.toString());
                 context.output(outputTag,TrafficServerIpMetrics.getOutputMetric(middleResult));
             }
         }catch (Exception e){

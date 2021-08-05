@@ -4,19 +4,15 @@ import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosEventLog;
 import com.zdjizhi.common.DosMetricsLog;
 import com.zdjizhi.common.DosSketchLog;
-import com.zdjizhi.etl.EtlProcessFunction;
 import com.zdjizhi.etl.DosDetection;
+import com.zdjizhi.etl.EtlProcessFunction;
 import com.zdjizhi.etl.ParseSketchLog;
-import com.zdjizhi.source.BaselineSource;
 import com.zdjizhi.utils.FlinkEnvironmentUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.functions.ReduceFunction;
-import org.apache.flink.api.common.state.MapStateDescriptor;
-import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple4;
-import org.apache.flink.api.java.typeutils.MapTypeInfo;
 import org.apache.flink.streaming.api.datastream.*;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -34,10 +30,6 @@ public class OutputStreamSink {
 
     public static OutputTag<DosMetricsLog> outputTag = new OutputTag<DosMetricsLog>("traffic server ip metrics"){};
 
-    private static MapStateDescriptor<String, Map<String, Map<String, List<Integer>>>> descriptor = new MapStateDescriptor<>("boradcast-state",
-            Types.STRING,
-            new MapTypeInfo<>(String.class, new MapTypeInfo<>(String.class, (Class<List<Integer>>) (Class<?>) List.class).getTypeClass()));
-
     public static void finalOutputSink(){
         try {
             SingleOutputStreamOperator<DosSketchLog> middleStream = getMiddleStream();
@@ -50,28 +42,11 @@ public class OutputStreamSink {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        SingleOutputStreamOperator<DosSketchLog> middleStream = getMiddleStream();
-        SingleOutputStreamOperator<DosEventLog> dosEventLogOutputStream = getOutputSinkStream(middleStream);
-        DosEventSink.dosEventOutputSink(dosEventLogOutputStream);
-        TrafficServerIpMetricsSink.sideOutputMetricsSink(middleStream);
-        dosEventLogOutputStream.print();
-        FlinkEnvironmentUtils.streamExeEnv.execute();
-    }
-
     private static SingleOutputStreamOperator<DosEventLog> getOutputSinkStream(SingleOutputStreamOperator<DosSketchLog> middleStream){
 
-        BroadcastStream<Map<String, Map<String,List<Integer>>>> broadcast = FlinkEnvironmentUtils.streamExeEnv
-                .addSource(new BaselineSource())
-                .setParallelism(CommonConfig.HBASE_INPUT_PARALLELISM)
-                .broadcast(descriptor);
-        logger.info("广播变量加载成功！！");
-
         return middleStream.keyBy(new SecondKeySelector())
-//                .window(TumblingEventTimeWindows.of(Time.seconds(CommonConfig.FLINK_WINDOW_MAX_TIME)))
                 .reduce(new SecondReduceFunc())
-                .connect(broadcast)
-                .process(new DosDetection())
+                .map(new DosDetection())
                 .setParallelism(CommonConfig.FLINK_SECOND_AGG_PARALLELISM);
     }
 

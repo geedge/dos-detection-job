@@ -6,10 +6,15 @@ import com.zdjizhi.utils.JsonMapper;
 import com.zdjizhi.utils.KafkaUtils;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 
+import java.util.Objects;
+
 class DosEventSink {
 
     static void dosEventOutputSink(SingleOutputStreamOperator<DosEventLog> dosEventLogOutputStream){
-        dosEventLogOutputStream.map(JsonMapper::toJsonString).addSink(KafkaUtils.getKafkaSink(CommonConfig.KAFKA_OUTPUT_EVENT_TOPIC_NAME))
+        dosEventLogOutputStream
+                .filter(Objects::nonNull)
+                .map(JsonMapper::toJsonString)
+                .addSink(KafkaUtils.getKafkaSink(CommonConfig.KAFKA_OUTPUT_EVENT_TOPIC_NAME))
                 .setParallelism(CommonConfig.KAFKA_OUTPUT_EVENT_PARALLELISM);
     }
 
