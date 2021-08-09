@@ -21,12 +21,22 @@ class TrafficServerIpMetrics {
         dosMetricsLog.setSession_rate(midResuleLog.getSketch_sessions());
         dosMetricsLog.setPacket_rate(midResuleLog.getSketch_packets());
         dosMetricsLog.setBit_rate(midResuleLog.getSketch_bytes());
+        dosMetricsLog.setPartition_num(getPartitionNumByIp(midResuleLog.getDestination_ip()));
         logger.debug("metric 结果已加载：{}",dosMetricsLog.toString());
         return dosMetricsLog;
     }
 
     private static long timeFloor(long sketchStartTime){
         return sketchStartTime / CommonConfig.FLINK_WINDOW_MAX_TIME * CommonConfig.FLINK_WINDOW_MAX_TIME;
+    }
+
+    private static int getPartitionNumByIp(String destinationIp){
+        return Math.abs(destinationIp.hashCode()) % CommonConfig.DESTINATION_IP_PARTITION_NUM;
+    }
+
+    public static void main(String[] args) {
+//        System.out.println(getPartitionNumByIp("146.177.223.43"));
+        System.out.println("146.177.223.43".hashCode());
     }
 
 }

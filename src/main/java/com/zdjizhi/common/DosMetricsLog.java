@@ -12,6 +12,15 @@ public class DosMetricsLog implements Serializable {
     private long session_rate;
     private long packet_rate;
     private long bit_rate;
+    private int partition_num;
+
+    public int getPartition_num() {
+        return partition_num;
+    }
+
+    public void setPartition_num(int partition_num) {
+        this.partition_num = partition_num;
+    }
 
     public long getSketch_start_time() {
         return sketch_start_time;
@@ -88,6 +97,7 @@ public class DosMetricsLog implements Serializable {
                 ", session_rate=" + session_rate +
                 ", packet_rate=" + packet_rate +
                 ", bit_rate=" + bit_rate +
+                ", partition_num=" + partition_num +
                 '}';
     }
 }
