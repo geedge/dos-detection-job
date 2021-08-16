@@ -3,7 +3,7 @@ package com.zdjizhi.etl;
 import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosSketchLog;
 import org.apache.commons.lang.StringUtils;
-import org.apache.flink.api.java.tuple.Tuple4;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
@@ -18,11 +18,11 @@ import static com.zdjizhi.sink.OutputStreamSink.outputTag;
 /**
  * @author 94976
  */
-public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosSketchLog, Tuple4<String,String,String,String>, TimeWindow> {
+public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosSketchLog, Tuple2<String,String>, TimeWindow> {
 
     private static final Logger logger = LoggerFactory.getLogger(EtlProcessFunction.class);
     @Override
-    public void process(Tuple4<String,String, String, String> keys,
+    public void process(Tuple2<String, String> keys,
                         Context context, Iterable<DosSketchLog> elements,
                         Collector<DosSketchLog> out) {
         DosSketchLog middleResult = getMiddleResult(keys, elements);
@@ -37,16 +37,14 @@ public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosS
         }
     }
 
-    private DosSketchLog getMiddleResult(Tuple4<String,String, String, String> keys,Iterable<DosSketchLog> elements){
+    private DosSketchLog getMiddleResult(Tuple2<String, String> keys,Iterable<DosSketchLog> elements){
 
         DosSketchLog midResuleLog = new DosSketchLog();
         Tuple6<Long, Long, Long,String,Long,Long> values = sketchAggregate(elements);
         try {
             if (values != null){
-                midResuleLog.setCommon_sled_ip(keys.f0);
-                midResuleLog.setCommon_data_center(keys.f1);
-                midResuleLog.setDestination_ip(keys.f3);
-                midResuleLog.setAttack_type(keys.f2);
+                midResuleLog.setAttack_type(keys.f0);
+                midResuleLog.setDestination_ip(keys.f1);
                 midResuleLog.setSketch_start_time(values.f4);
                 midResuleLog.setSketch_duration(values.f5);
                 midResuleLog.setSource_ip(values.f3);

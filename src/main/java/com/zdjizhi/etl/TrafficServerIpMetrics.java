@@ -14,8 +14,6 @@ class TrafficServerIpMetrics {
     static DosMetricsLog getOutputMetric(DosSketchLog midResuleLog) {
         DosMetricsLog dosMetricsLog = new DosMetricsLog();
         dosMetricsLog.setSketch_start_time(timeFloor(System.currentTimeMillis()/1000));
-        dosMetricsLog.setCommon_sled_ip(midResuleLog.getCommon_sled_ip());
-        dosMetricsLog.setCommon_data_center(midResuleLog.getCommon_data_center());
         dosMetricsLog.setDestination_ip(midResuleLog.getDestination_ip());
         dosMetricsLog.setAttack_type(midResuleLog.getAttack_type());
         dosMetricsLog.setSession_rate(midResuleLog.getSketch_sessions());
@@ -35,7 +33,7 @@ class TrafficServerIpMetrics {
     }
 
     public static void main(String[] args) {
-//        System.out.println(getPartitionNumByIp("146.177.223.43"));
+        System.out.println(getPartitionNumByIp("146.177.223.43"));
         System.out.println("146.177.223.43".hashCode());
     }
 

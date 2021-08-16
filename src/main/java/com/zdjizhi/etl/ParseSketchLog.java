@@ -17,6 +17,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+/**
+ * @author wlh
+ */
 public class ParseSketchLog {
 
     private static Logger logger = LoggerFactory.getLogger(ParseSketchLog.class);
@@ -37,20 +40,16 @@ public class ParseSketchLog {
 
     private static class FlatSketchLog implements FlatMapFunction<String, DosSketchLog> {
         @Override
-        public void flatMap(String s, Collector<DosSketchLog> collector) throws Exception {
+        public void flatMap(String s, Collector<DosSketchLog> collector) {
             try {
                 if (StringUtil.isNotBlank(s)){
                     HashMap<String, Object> sketchSource = (HashMap<String, Object>) JsonMapper.fromJsonString(s, Object.class);
-                    String commonSledIp = sketchSource.get("common_sled_ip").toString();
-                    String commonDataCenter = sketchSource.get("common_data_center").toString();
                     long sketchStartTime = Long.parseLong(sketchSource.get("sketch_start_time").toString());
                     long sketchDuration = Long.parseLong(sketchSource.get("sketch_duration").toString());
                     String attackType = sketchSource.get("attack_type").toString();
                     ArrayList<HashMap<String, Object>> reportIpList = (ArrayList<HashMap<String, Object>>) sketchSource.get("report_ip_list");
                     for (HashMap<String, Object> obj : reportIpList) {
                         DosSketchLog dosSketchLog = new DosSketchLog();
-                        dosSketchLog.setCommon_sled_ip(commonSledIp);
-                        dosSketchLog.setCommon_data_center(commonDataCenter);
                         dosSketchLog.setSketch_start_time(sketchStartTime);
                         dosSketchLog.setSketch_duration(sketchDuration);
                         dosSketchLog.setAttack_type(attackType);

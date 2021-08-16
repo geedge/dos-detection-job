@@ -9,6 +9,9 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 
 import java.util.Properties;
 
+/**
+ * @author wlh
+ */
 public class DosSketchSource {
 
     private static StreamExecutionEnvironment streamExeEnv = FlinkEnvironmentUtils.streamExeEnv;
