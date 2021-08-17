@@ -1,6 +1,7 @@
 package com.zdjizhi.utils;
 
 import com.zdjizhi.common.CommonConfig;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
@@ -22,11 +23,16 @@ import java.util.*;
  */
 public class HbaseUtils {
     private static final Logger logger = LoggerFactory.getLogger(HbaseUtils.class);
-    private static Table table  = null;
+    private static Table table = null;
     private static Scan scan = null;
-    public static Map<String, Map<String,List<Integer>>> baselineMap = new HashMap<>();
+    public static Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> baselineMap = new HashMap<>();
+    private static ArrayList<String> floodTypeList = new ArrayList<>();
 
     static {
+        floodTypeList.add("TCP SYN Flood");
+        floodTypeList.add("UDP Flood");
+        floodTypeList.add("ICMP Flood");
+        floodTypeList.add("DNS Amplification");
         readFromHbase();
     }
 
@@ -40,7 +46,7 @@ public class HbaseUtils {
         config.setInt(HConstants.HBASE_CLIENT_OPERATION_TIMEOUT, CommonConfig.HBASE_CLIENT_OPERATION_TIMEOUT);
         config.setInt(HConstants.HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD, CommonConfig.HBASE_CLIENT_SCANNER_TIMEOUT_PERIOD);
 
-        TableName tableName  = TableName.valueOf(CommonConfig.HBASE_BASELINE_TABLE_NAME);
+        TableName tableName = TableName.valueOf(CommonConfig.HBASE_BASELINE_TABLE_NAME);
         Connection conn = ConnectionFactory.createConnection(config);
         table = conn.getTable(tableName);
         scan = new Scan().setAllowPartialResults(true).setLimit(CommonConfig.HBASE_BASELINE_TOTAL_NUM);
@@ -49,60 +55,61 @@ public class HbaseUtils {
 
     public static void main(String[] args) {
         Set<String> keySet = baselineMap.keySet();
-        for (String key:keySet){
-            Map<String, List<Integer>> stringListMap = baselineMap.get(key);
-            Set<String> typeSet = stringListMap.keySet();
-            for (String type:typeSet){
-                List<Integer> lines = stringListMap.get(type);
-                if (lines != null){
-                    System.out.println(key+"--"+type+"--"+Arrays.toString(lines.toArray()));
-                }
-            }
+        for (String key : keySet) {
+
         }
         System.out.println(baselineMap.size());
     }
 
-    private static void readFromHbase(){
+    private static void readFromHbase() {
         try {
             prepareHbaseEnv();
             logger.info("开始读取baseline数据");
             ResultScanner rs = table.getScanner(scan);
             for (Result result : rs) {
-                Map<String, List<Integer>> floodTypeMap = new HashMap<>();
+                Map<String, Tuple2<ArrayList<Integer>, Integer>> floodTypeMap = new HashMap<>();
                 String rowkey = Bytes.toString(result.getRow());
-                ArrayList<Integer> tcp = getArraylist(result,"TCP SYN Flood", "session_rate");
-                ArrayList<Integer> udp = getArraylist(result,"UDP Flood", "session_rate");
-                ArrayList<Integer> icmp = getArraylist(result,"ICMP Flood", "session_rate");
-                ArrayList<Integer> dns = getArraylist(result,"DNS Amplification", "session_rate");
-                floodTypeMap.put("TCP SYN Flood",tcp);
-                floodTypeMap.put("UDP Flood",udp);
-                floodTypeMap.put("ICMP Flood",icmp);
-                floodTypeMap.put("DNS Amplification",dns);
-                baselineMap.put(rowkey,floodTypeMap);
+                for (String type:floodTypeList){
+                    ArrayList<Integer> sessionRate = getArraylist(result, type, "session_rate");
+                    Integer defaultValue = getDefaultValue(result, type, "session_rate_default_value");
+                    floodTypeMap.put(type,Tuple2.of(sessionRate, defaultValue));
+                }
+                baselineMap.put(rowkey, floodTypeMap);
             }
-            logger.info("格式化baseline数据成功，读取IP共：{}",baselineMap.size());
-        }catch (Exception e){
-            logger.error("读取hbase数据失败",e);
+            logger.info("格式化baseline数据成功，读取IP共：{}", baselineMap.size());
+        } catch (Exception e) {
+            logger.error("读取hbase数据失败", e);
         }
     }
 
-    private static ArrayList<Integer> getArraylist(Result result,String family,String qualifier) throws IOException {
-        if (!result.containsColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier))){
-            return null;
+    private static Integer getDefaultValue(Result result, String family, String qualifier) {
+        byte[] value = result.getValue(Bytes.toBytes(family), Bytes.toBytes(qualifier));
+        if (value != null){
+            return Bytes.toInt(value);
         }
-        ArrayWritable w = new ArrayWritable(IntWritable.class);
-        w.readFields(new DataInputStream(new ByteArrayInputStream(result.getValue(Bytes.toBytes(family), Bytes.toBytes(qualifier)))));
-        return fromWritable(w);
+        return 1;
+    }
+
+    private static ArrayList<Integer> getArraylist(Result result, String family, String qualifier) throws IOException {
+        if (containsColumn(result, family, qualifier)) {
+            ArrayWritable w = new ArrayWritable(IntWritable.class);
+            w.readFields(new DataInputStream(new ByteArrayInputStream(result.getValue(Bytes.toBytes(family), Bytes.toBytes(qualifier)))));
+            return fromWritable(w);
+        }
+        return null;
     }
 
     private static ArrayList<Integer> fromWritable(ArrayWritable writable) {
         Writable[] writables = writable.get();
         ArrayList<Integer> list = new ArrayList<>(writables.length);
         for (Writable wrt : writables) {
-            list.add(((IntWritable)wrt).get());
+            list.add(((IntWritable) wrt).get());
         }
         return list;
     }
 
+    private static boolean containsColumn(Result result, String family, String qualifier) {
+        return result.containsColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier));
+    }
 
 }

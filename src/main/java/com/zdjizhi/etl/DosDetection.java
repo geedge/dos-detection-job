@@ -8,6 +8,7 @@ import com.zdjizhi.utils.IpUtils;
 import com.zdjizhi.utils.SnowflakeId;
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,7 @@ import java.util.*;
 public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
 
     private static final Logger logger = LoggerFactory.getLogger(DosDetection.class);
-    private static Map<String, Map<String,List<Integer>>> baselineMap;
+    private static Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> baselineMap;
     private final static int BASELINE_SIZE = 144;
     private final static NumberFormat PERCENT_INSTANCE = NumberFormat.getPercentInstance();
 
@@ -39,12 +40,12 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
             String attackType = value.getAttack_type();
             logger.debug("当前判断IP：{}, 类型: {}",destinationIp,attackType);
             if (baselineMap.containsKey(destinationIp)){
-                List<Integer> baseline = baselineMap.get(destinationIp).get(attackType);
-                if (baseline != null && baseline.size() == BASELINE_SIZE){
-                    int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
-                    Integer base = baseline.get(timeIndex);
+                Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
+                List<Integer> baselines = floodTypeTup.f0;
+                if (baselines != null && baselines.size() == BASELINE_SIZE){
+                    Integer base = getBaseValue(baselines,value,floodTypeTup.f1);
                     long diff = value.getSketch_sessions() - base;
-                    if (diff > 0){
+                    if (diff > 0 && base != 0){
                         String percent = getDiffPercent(diff, base);
                         double diffPercentDouble = getDiffPercentDouble(percent);
                         Severity severity = judgeSeverity(diffPercentDouble);
@@ -83,6 +84,21 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         dosEventLog.setPacket_rate(value.getSketch_packets());
         dosEventLog.setBit_rate(value.getSketch_bytes());
         return dosEventLog;
+    }
+
+    private Integer getBaseValue(List<Integer> baselines,DosSketchLog value,int defauleVaule){
+        try {
+            int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
+            Integer base = baselines.get(timeIndex);
+            if (base == 0){
+                logger.debug("获取到当前IP: {},类型: {} baseline值为0,替换为P95观测值{}",value.getDestination_ip(),value.getAttack_type(),defauleVaule);
+                base = defauleVaule;
+            }
+            return base;
+        }catch (Exception e){
+            logger.error("解析baseline数据失败,返回默认值0",e);
+            return 0;
+        }
     }
 
     private String getConditions(String percent){
