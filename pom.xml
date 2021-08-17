@@ -118,7 +118,7 @@
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-sql-connector-kafka_2.11</artifactId>
             <version>${flink.version}</version>
-            <!--<scope>provided</scope>-->
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -127,23 +127,6 @@
             <version>${flink.version}</version>
             <!--<scope>provided</scope>-->
         </dependency>
-
-        <!--&lt;!&ndash; https://mvnrepository.com/artifact/org.apache.flink/flink-table &ndash;&gt;-->
-        <!--<dependency>-->
-            <!--<groupId>org.apache.flink</groupId>-->
-            <!--<artifactId>flink-table</artifactId>-->
-            <!--<version>${flink.version}</version>-->
-            <!--&lt;!&ndash;<scope>provided</scope>&ndash;&gt;-->
-        <!--</dependency>-->
-
-        <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-json -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-json</artifactId>
-            <version>${flink.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
 
         <!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients -->
         <dependency>

@@ -43,10 +43,9 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
                 if (baseline != null && baseline.size() == BASELINE_SIZE){
                     int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
                     Integer base = baseline.get(timeIndex);
-                    long sketchSessions = value.getSketch_sessions();
-                    long diff = sketchSessions - base;
+                    long diff = value.getSketch_sessions() - base;
                     if (diff > 0){
-                        String percent = getDiffPercent(diff, sketchSessions);
+                        String percent = getDiffPercent(diff, base);
                         double diffPercentDouble = getDiffPercentDouble(percent);
                         Severity severity = judgeSeverity(diffPercentDouble);
                         if (severity != Severity.NORMAL){
@@ -105,10 +104,15 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return Integer.parseInt(Long.toString(indexLong));
     }
 
-    private String getDiffPercent(long diff,long sketchSessions){
+    private String getDiffPercent(long diff,long base){
         double diffDou = Double.parseDouble(Long.toString(diff));
-        double sessDou = Double.parseDouble(Long.toString(sketchSessions));
-        return PERCENT_INSTANCE.format(diffDou / sessDou);
+        double baseDou = Double.parseDouble(Long.toString(base));
+        return PERCENT_INSTANCE.format(diffDou / baseDou);
+    }
+
+    public static void main(String[] args) throws Exception {
+        System.out.println(new DosDetection().getDiffPercent(219, 0));
+        System.out.println(new DosDetection().getDiffPercentDouble("∞%"));
     }
 
     private double getDiffPercentDouble(String diffPercent) throws ParseException {
