@@ -56,7 +56,12 @@ public class HbaseUtils {
     public static void main(String[] args) {
         Set<String> keySet = baselineMap.keySet();
         for (String key : keySet) {
-
+            Map<String, Tuple2<ArrayList<Integer>, Integer>> stringTuple2Map = baselineMap.get(key);
+            Set<String> strings = stringTuple2Map.keySet();
+            for (String s:strings){
+                Tuple2<ArrayList<Integer>, Integer> arrayListIntegerTuple2 = stringTuple2Map.get(s);
+                System.out.println(key+"---"+s+"---"+arrayListIntegerTuple2.f0+"---"+arrayListIntegerTuple2.f1);
+            }
         }
         System.out.println(baselineMap.size());
     }
@@ -71,8 +76,10 @@ public class HbaseUtils {
                 String rowkey = Bytes.toString(result.getRow());
                 for (String type:floodTypeList){
                     ArrayList<Integer> sessionRate = getArraylist(result, type, "session_rate");
-                    Integer defaultValue = getDefaultValue(result, type, "session_rate_default_value");
-                    floodTypeMap.put(type,Tuple2.of(sessionRate, defaultValue));
+                    if (sessionRate != null && !sessionRate.isEmpty()){
+                        Integer defaultValue = getDefaultValue(result, type, "session_rate_default_value");
+                        floodTypeMap.put(type,Tuple2.of(sessionRate, defaultValue));
+                    }
                 }
                 baselineMap.put(rowkey, floodTypeMap);
             }

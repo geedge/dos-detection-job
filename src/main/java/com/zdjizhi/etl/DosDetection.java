@@ -28,50 +28,47 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     private final static NumberFormat PERCENT_INSTANCE = NumberFormat.getPercentInstance();
 
     @Override
-    public void open(Configuration parameters){
+    public void open(Configuration parameters) {
         baselineMap = HbaseUtils.baselineMap;
         PERCENT_INSTANCE.setMinimumFractionDigits(2);
     }
 
     @Override
-    public DosEventLog map(DosSketchLog value){
+    public DosEventLog map(DosSketchLog value) {
         try {
             String destinationIp = value.getDestination_ip();
             String attackType = value.getAttack_type();
-            logger.debug("当前判断IP：{}, 类型: {}",destinationIp,attackType);
-            if (baselineMap.containsKey(destinationIp)){
+            logger.debug("当前判断IP：{}, 类型: {}", destinationIp, attackType);
+            if (baselineMap.containsKey(destinationIp)) {
                 Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
-                List<Integer> baselines = floodTypeTup.f0;
-                if (baselines != null && baselines.size() == BASELINE_SIZE){
-                    Integer base = getBaseValue(baselines,value,floodTypeTup.f1);
-                    long diff = value.getSketch_sessions() - base;
-                    if (diff > 0 && base != 0){
-                        String percent = getDiffPercent(diff, base);
-                        double diffPercentDouble = getDiffPercentDouble(percent);
-                        Severity severity = judgeSeverity(diffPercentDouble);
-                        if (severity != Severity.NORMAL){
-                            DosEventLog result = getResult(value, severity, percent);
-                            logger.info("检测到当前server IP {} 存在 {} 异常,日志详情\n {}",destinationIp,attackType,result.toString());
-                            return result;
-                        }else {
-                            logger.debug("当前server IP：{} 未出现 {} 异常,日志详情 {}",destinationIp,attackType,value.toString());
-                        }
+                Integer base = getBaseValue(floodTypeTup, value);
+                long diff = value.getSketch_sessions() - base;
+                if (diff > 0 && base != 0) {
+                    String percent = getDiffPercent(diff, base);
+                    double diffPercentDouble = getDiffPercentDouble(percent);
+                    Severity severity = judgeSeverity(diffPercentDouble);
+                    if (severity != Severity.NORMAL) {
+                        DosEventLog result = getResult(value, severity, percent);
+                        logger.info("检测到当前server IP {} 存在 {} 异常,日志详情\n {}", destinationIp, attackType, result.toString());
+                        return result;
+                    } else {
+                        logger.debug("当前server IP：{} 未出现 {} 异常,日志详情 {}", destinationIp, attackType, value.toString());
                     }
                 }
-            }else {
-                logger.debug("未获取到当前server IP：{} 类型 {} baseline数据",destinationIp,attackType);
+            } else {
+                logger.debug("未获取到当前server IP：{} 类型 {} baseline数据", destinationIp, attackType);
             }
-        }catch (Exception e){
-            logger.error("判定失败\n {} \n{}",value,e);
+        } catch (Exception e) {
+            logger.error("判定失败\n {} \n{}", value, e);
         }
         return null;
     }
 
-    private DosEventLog getResult(DosSketchLog value, Severity severity, String percent){
+    private DosEventLog getResult(DosSketchLog value, Severity severity, String percent) {
         DosEventLog dosEventLog = new DosEventLog();
         dosEventLog.setLog_id(SnowflakeId.generateId());
         dosEventLog.setStart_time(value.getSketch_start_time());
-        dosEventLog.setEnd_time(value.getSketch_start_time()+CommonConfig.FLINK_WINDOW_MAX_TIME);
+        dosEventLog.setEnd_time(value.getSketch_start_time() + CommonConfig.FLINK_WINDOW_MAX_TIME);
         dosEventLog.setAttack_type(value.getAttack_type());
         dosEventLog.setSeverity(severity.toString());
         dosEventLog.setConditions(getConditions(percent));
@@ -86,41 +83,47 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return dosEventLog;
     }
 
-    private Integer getBaseValue(List<Integer> baselines,DosSketchLog value,int defauleVaule){
+    private Integer getBaseValue(Tuple2<ArrayList<Integer>, Integer> floodTypeTup, DosSketchLog value) {
+        Integer base = 0;
         try {
-            int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
-            Integer base = baselines.get(timeIndex);
-            if (base == 0){
-                logger.debug("获取到当前IP: {},类型: {} baseline值为0,替换为P95观测值{}",value.getDestination_ip(),value.getAttack_type(),defauleVaule);
-                base = defauleVaule;
+            if (floodTypeTup != null){
+                ArrayList<Integer> baselines = floodTypeTup.f0;
+                Integer defaultVaule = floodTypeTup.f1;
+                if (baselines != null && baselines.size() == BASELINE_SIZE) {
+                    int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
+                    base = baselines.get(timeIndex);
+                    if (base == 0) {
+                        logger.debug("获取到当前IP: {},类型: {} baseline值为0,替换为P95观测值{}", value.getDestination_ip(), value.getAttack_type(), defaultVaule);
+                        base = defaultVaule;
+                    }
+                }
             }
-            return base;
-        }catch (Exception e){
-            logger.error("解析baseline数据失败,返回默认值0",e);
-            return 0;
+        } catch (Exception e) {
+            logger.error("解析baseline数据失败,返回默认值0", e);
         }
+        return base;
     }
 
-    private String getConditions(String percent){
-        return "sessions > "+percent+" of baseline";
+    private String getConditions(String percent) {
+        return "sessions > " + percent + " of baseline";
     }
 
-    private String getSourceCountryList(String sourceIpList){
+    private String getSourceCountryList(String sourceIpList) {
         String[] ipArr = sourceIpList.split(",");
         HashSet<String> countrySet = new HashSet<>();
-        for (String ip:ipArr){
+        for (String ip : ipArr) {
             countrySet.add(IpUtils.ipLookup.countryLookup(ip));
         }
-        return StringUtils.join(countrySet,",");
+        return StringUtils.join(countrySet, ",");
     }
 
-    private int getCurrentTimeIndex(long sketchStartTime){
+    private int getCurrentTimeIndex(long sketchStartTime) {
         long currentDayTime = sketchStartTime / (60 * 60 * 24) * 60 * 60 * 24;
         long indexLong = (sketchStartTime - currentDayTime) / 600;
         return Integer.parseInt(Long.toString(indexLong));
     }
 
-    private String getDiffPercent(long diff,long base){
+    private String getDiffPercent(long diff, long base) {
         double diffDou = Double.parseDouble(Long.toString(diff));
         double baseDou = Double.parseDouble(Long.toString(base));
         return PERCENT_INSTANCE.format(diffDou / baseDou);
@@ -135,18 +138,18 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return PERCENT_INSTANCE.parse(diffPercent).doubleValue();
     }
 
-    private Severity judgeSeverity(double diffPercent){
-        if (diffPercent >= CommonConfig.BASELINE_SESSIONS_MINOR_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_WARNING_THRESHOLD){
+    private Severity judgeSeverity(double diffPercent) {
+        if (diffPercent >= CommonConfig.BASELINE_SESSIONS_MINOR_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_WARNING_THRESHOLD) {
             return Severity.MINOR;
-        }else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_WARNING_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_MAJOR_THRESHOLD){
+        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_WARNING_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_MAJOR_THRESHOLD) {
             return Severity.WARNING;
-        }else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_MAJOR_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_SEVERE_THRESHOLD){
+        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_MAJOR_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_SEVERE_THRESHOLD) {
             return Severity.MAJOR;
-        }else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_SEVERE_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_CRITICAL_THRESHOLD){
+        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_SEVERE_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_CRITICAL_THRESHOLD) {
             return Severity.SEVERE;
-        }else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_CRITICAL_THRESHOLD){
+        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_CRITICAL_THRESHOLD) {
             return Severity.CRITICAL;
-        }else {
+        } else {
             return Severity.NORMAL;
         }
     }

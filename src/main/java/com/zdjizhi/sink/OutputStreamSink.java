@@ -28,8 +28,7 @@ public class OutputStreamSink {
     public static void finalOutputSink(){
         try {
             SingleOutputStreamOperator<DosSketchLog> middleStream = getMiddleStream();
-            SingleOutputStreamOperator<DosEventLog> dosEventLogOutputStream = getOutputSinkStream(middleStream);
-            DosEventSink.dosEventOutputSink(dosEventLogOutputStream);
+            DosEventSink.dosEventOutputSink(getEventSinkStream(middleStream));
             TrafficServerIpMetricsSink.sideOutputMetricsSink(middleStream);
             FlinkEnvironmentUtils.streamExeEnv.execute(CommonConfig.STREAM_EXECUTION_JOB_NAME);
         } catch (Exception e) {
@@ -37,19 +36,19 @@ public class OutputStreamSink {
         }
     }
 
-    private static SingleOutputStreamOperator<DosEventLog> getOutputSinkStream(SingleOutputStreamOperator<DosSketchLog> middleStream){
+    private static SingleOutputStreamOperator<DosEventLog> getEventSinkStream(SingleOutputStreamOperator<DosSketchLog> middleStream){
         return middleStream.map(new DosDetection()).setParallelism(CommonConfig.FLINK_DETECTION_MAP_PARALLELISM);
     }
 
     private static SingleOutputStreamOperator<DosSketchLog> getMiddleStream(){
         return ParseSketchLog.getSketchSource()
-                .keyBy(new FirstKeySelector())
+                .keyBy(new KeysSelector())
                 .window(TumblingEventTimeWindows.of(Time.seconds(CommonConfig.FLINK_WINDOW_MAX_TIME)))
                 .process(new EtlProcessFunction())
                 .setParallelism(CommonConfig.FLINK_FIRST_AGG_PARALLELISM);
     }
 
-    private static class FirstKeySelector implements KeySelector<DosSketchLog, Tuple2<String, String>>{
+    private static class KeysSelector implements KeySelector<DosSketchLog, Tuple2<String, String>>{
         @Override
         public Tuple2<String, String> getKey(DosSketchLog dosSketchLog){
             return Tuple2.of(

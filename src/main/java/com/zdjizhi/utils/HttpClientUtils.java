@@ -26,14 +26,11 @@ import javax.net.ssl.SSLHandshakeException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * @author wlh
  * http client工具类
  */
 public class HttpClientUtils {
@@ -41,6 +38,7 @@ public class HttpClientUtils {
     private static final PoolingHttpClientConnectionManager CONN_MANAGER = new PoolingHttpClientConnectionManager();
 
     private static Logger logger = LoggerFactory.getLogger(HttpClientUtils.class);
+    public static final String ERROR_MESSAGE = "-1";
 
     /*
      * 静态代码块配置连接池信息
@@ -136,21 +134,17 @@ public class HttpClientUtils {
     /**
      * GET请求
      *
-     * @param url 请求地
+     * @param uri 请求地
      * @return message
      */
-    public static String httpGet(String url, Header... headers) {
-        String msg = "-1";
+    public static String httpGet(URI uri, Header... headers) {
+        String msg = ERROR_MESSAGE;
 
         // 获取客户端连接对象
         CloseableHttpClient httpClient = getHttpClient();
         CloseableHttpResponse response = null;
 
         try {
-
-            URL ul = new URL(url);
-
-            URI uri = new URI(ul.getProtocol(),null,  ul.getHost(),  ul.getPort(), ul.getPath(), ul.getQuery(), null);
             logger.info("http get uri {}",uri);
             // 创建GET请求对象
             HttpGet httpGet = new HttpGet(uri);
@@ -173,8 +167,6 @@ public class HttpClientUtils {
                 logger.error("Http get content is :{}" , msg);
             }
 
-        } catch (URISyntaxException e) {
-            logger.error("URI 转换错误: {}", e.getMessage());
         } catch (ClientProtocolException e) {
             logger.error("协议错误: {}", e.getMessage());
         } catch (ParseException e) {
@@ -197,27 +189,23 @@ public class HttpClientUtils {
     }
     /**
      * POST 请求
-     * @param url url参数
+     * @param uri uri参数
      * @param requestBody 请求体
      * @return post请求返回结果
      */
-    public static String httpPost(String url, String requestBody, Header... headers) {
-    	String msg = "-1";
+    public static String httpPost(URI uri, String requestBody, Header... headers) {
+    	String msg = ERROR_MESSAGE;
     	// 获取客户端连接对象
         CloseableHttpClient httpClient = getHttpClient();
         
         // 创建POST请求对象
         CloseableHttpResponse response = null;
         try {
-        	
-        	URL ul = new URL(url);
-
-            URI uri = new URI(ul.getProtocol(),null,  ul.getHost(),  ul.getPort(), ul.getPath(), ul.getQuery(), null);
 
             logger.info("http post uri:{}， http post body:{}", uri, requestBody);
             
             HttpPost httpPost = new HttpPost(uri);
-            httpPost.setHeader("Content-Type", "application/json");
+            httpPost.setHeader("Content-Type", "application/x-www-form-urlencoded");
             if (StringUtil.isNotEmpty(headers)) {
                 for (Header h : headers) {
                     httpPost.addHeader(h);
@@ -240,9 +228,7 @@ public class HttpClientUtils {
             if (statusCode != HttpStatus.SC_OK) {
                 logger.error("Http post content is :{}" , msg);
             }
-        } catch (URISyntaxException e) {
-        	logger.error("URI 转换错误: {}", e.getMessage());
-		} catch (ClientProtocolException e) {
+        } catch (ClientProtocolException e) {
             logger.error("协议错误: {}", e.getMessage());
         } catch (ParseException e) {
         	logger.error("解析错误: {}", e.getMessage());
@@ -269,16 +255,14 @@ public class HttpClientUtils {
     public static void setUrlWithParams(URIBuilder uriBuilder,String path, Map<String, String> params) {
         try {
             uriBuilder.setPath(path);
-            for (Map.Entry<String, String> kv : params.entrySet()) {
-                uriBuilder.setParameter(kv.getKey(),kv.getValue());
+            if (params != null && !params.isEmpty()){
+                for (Map.Entry<String, String> kv : params.entrySet()) {
+                    uriBuilder.setParameter(kv.getKey(),kv.getValue());
+                }
             }
         } catch (Exception e) {
             logger.error("拼接url出错,uri : {}, path : {},参数: {}",uriBuilder.toString(),path,params);
         }
-    }
-
-    public static void getEncryptpwd(){
-
     }
 
 }
