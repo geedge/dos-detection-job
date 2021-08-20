@@ -1,15 +1,19 @@
 package com.zdjizhi.etl;
 
 import com.zdjizhi.common.CommonConfig;
+import com.zdjizhi.common.DosDetectionThreshold;
 import com.zdjizhi.common.DosEventLog;
 import com.zdjizhi.common.DosSketchLog;
 import com.zdjizhi.utils.HbaseUtils;
 import com.zdjizhi.utils.IpUtils;
 import com.zdjizhi.utils.SnowflakeId;
+import inet.ipaddr.IPAddress;
+import inet.ipaddr.IPAddressString;
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.shaded.guava18.com.google.common.collect.TreeRangeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,42 +30,80 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     private static Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> baselineMap;
     private final static int BASELINE_SIZE = 144;
     private final static NumberFormat PERCENT_INSTANCE = NumberFormat.getPercentInstance();
+    private TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> thresholdRangeMap;
 
     @Override
     public void open(Configuration parameters) {
         baselineMap = HbaseUtils.baselineMap;
+        thresholdRangeMap = ParseStaticThreshold.createStaticThreshold();
         PERCENT_INSTANCE.setMinimumFractionDigits(2);
     }
 
     @Override
     public DosEventLog map(DosSketchLog value) {
+        DosEventLog finalResult = null;
         try {
             String destinationIp = value.getDestination_ip();
             String attackType = value.getAttack_type();
+            IPAddress destinationIpAddress = new IPAddressString(destinationIp).getAddress();
+            Map<String, DosDetectionThreshold> thresholdMap = thresholdRangeMap.get(destinationIpAddress);
             logger.debug("当前判断IP：{}, 类型: {}", destinationIp, attackType);
-            if (baselineMap.containsKey(destinationIp)) {
-                Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
-                Integer base = getBaseValue(floodTypeTup, value);
-                long diff = value.getSketch_sessions() - base;
-                if (diff > 0 && base != 0) {
-                    String percent = getDiffPercent(diff, base);
-                    double diffPercentDouble = getDiffPercentDouble(percent);
-                    Severity severity = judgeSeverity(diffPercentDouble);
-                    if (severity != Severity.NORMAL) {
-                        DosEventLog result = getResult(value, severity, percent);
-                        logger.info("检测到当前server IP {} 存在 {} 异常,日志详情\n {}", destinationIp, attackType, result.toString());
-                        return result;
-                    } else {
-                        logger.debug("当前server IP：{} 未出现 {} 异常,日志详情 {}", destinationIp, attackType, value.toString());
-                    }
-                }
-            } else {
-                logger.debug("未获取到当前server IP：{} 类型 {} baseline数据", destinationIp, attackType);
+            if (baselineMap.containsKey(destinationIp) && thresholdMap == null) {
+                finalResult = getDosEventLogByBaseline(value, destinationIp, attackType);
+            } else if (!baselineMap.containsKey(destinationIp) && thresholdMap != null) {
+                finalResult = getDosEventLogByStaticThreshold(value,thresholdMap);
+            }else if (baselineMap.containsKey(destinationIp) && thresholdMap != null){
+                DosEventLog eventLogByBaseline = getDosEventLogByBaseline(value, destinationIp, attackType);
+                DosEventLog eventLogByStaticThreshold = getDosEventLogByStaticThreshold(value, thresholdMap);
+                finalResult = mergeFinalResult(eventLogByBaseline,eventLogByStaticThreshold);
+            }else {
+                logger.debug("未获取到当前server IP：{} 类型 {} 静态阈值 和 baseline", destinationIp, attackType);
             }
         } catch (Exception e) {
             logger.error("判定失败\n {} \n{}", value, e);
         }
-        return null;
+        return finalResult;
+    }
+
+    private DosEventLog mergeFinalResult(DosEventLog eventLogByBaseline,DosEventLog eventLogByStaticThreshold){
+        return eventLogByStaticThreshold;
+    }
+
+    private DosEventLog getDosEventLogByBaseline(DosSketchLog value, String destinationIp, String attackType) throws ParseException {
+        Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
+        Integer base = getBaseValue(floodTypeTup, value);
+        long diff = value.getSketch_sessions() - base;
+        return getDosEventLog(value, base, diff);
+    }
+
+    private DosEventLog getDosEventLogByStaticThreshold(DosSketchLog value, Map<String, DosDetectionThreshold> thresholdMap) throws ParseException {
+        DosEventLog result = null;
+        String attackType = value.getAttack_type();
+        if (thresholdMap.containsKey(attackType)) {
+            DosDetectionThreshold threshold = thresholdMap.get(attackType);
+            long base = threshold.getSessionsPerSec();
+            long diff = value.getSketch_sessions() - base;
+            result = getDosEventLog(value, base, diff);
+        }
+        return result;
+    }
+
+    private DosEventLog getDosEventLog(DosSketchLog value, long base, long diff) throws ParseException {
+        DosEventLog result = null;
+        String destinationIp = value.getDestination_ip();
+        String attackType = value.getAttack_type();
+        if (diff > 0 && base != 0) {
+            String percent = getDiffPercent(diff, base);
+            double diffPercentDouble = getDiffPercentDouble(percent);
+            Severity severity = judgeSeverity(diffPercentDouble);
+            if (severity != Severity.NORMAL) {
+                result = getResult(value, severity, percent);
+                logger.info("检测到当前server IP {} 存在 {} 异常,日志详情\n {}", destinationIp, attackType, result.toString());
+            } else {
+                logger.debug("当前server IP：{} 未出现 {} 异常,日志详情 {}", destinationIp, attackType, value.toString());
+            }
+        }
+        return result;
     }
 
     private DosEventLog getResult(DosSketchLog value, Severity severity, String percent) {
@@ -86,7 +128,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     private Integer getBaseValue(Tuple2<ArrayList<Integer>, Integer> floodTypeTup, DosSketchLog value) {
         Integer base = 0;
         try {
-            if (floodTypeTup != null){
+            if (floodTypeTup != null) {
                 ArrayList<Integer> baselines = floodTypeTup.f0;
                 Integer defaultVaule = floodTypeTup.f1;
                 if (baselines != null && baselines.size() == BASELINE_SIZE) {
@@ -127,11 +169,6 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         double diffDou = Double.parseDouble(Long.toString(diff));
         double baseDou = Double.parseDouble(Long.toString(base));
         return PERCENT_INSTANCE.format(diffDou / baseDou);
-    }
-
-    public static void main(String[] args) throws Exception {
-        System.out.println(new DosDetection().getDiffPercent(219, 0));
-        System.out.println(new DosDetection().getDiffPercentDouble("∞%"));
     }
 
     private double getDiffPercentDouble(String diffPercent) throws ParseException {

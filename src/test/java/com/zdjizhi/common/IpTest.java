@@ -13,6 +13,7 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.TreeRangeMap;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
 
 public class IpTest {
     public static void main(String[] args) throws Exception {
@@ -39,6 +40,11 @@ public class IpTest {
         IPAddress pv42 = new IPAddressString("1.2.3.4").getAddress();
         IPAddress pv43 = new IPAddressString("fc00::").getAddress();
         IPAddress pv44 = new IPAddressString("fc00::10:1").getAddress();
+
+        IPAddress pv45 = new IPAddressString("12.56.4.0/32").getAddress();
+        System.out.println(str5.getUpper()+"---"+str5.getLower());
+
+        System.out.println(rangeMap.span().contains(pv4));
 
         System.out.println(rangeMap.get(pv4));
         System.out.println(rangeMap.get(pv42));

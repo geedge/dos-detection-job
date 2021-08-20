@@ -125,8 +125,8 @@ public class ParseStaticThreshold {
      * 基于静态阈值构建threshold RangeMap，k:IP段或具体IP，v:配置信息
      * @return threshold RangeMap
      */
-    public static TreeRangeMap<IPAddress, DosDetectionThreshold> createStaticThreshold(){
-        TreeRangeMap<IPAddress, DosDetectionThreshold> thresholdRangeMap = null;
+    public static TreeRangeMap<IPAddress, Map<String,DosDetectionThreshold>> createStaticThreshold(){
+        TreeRangeMap<IPAddress, Map<String,DosDetectionThreshold>> thresholdRangeMap = null;
         try {
             ArrayList<DosDetectionThreshold> dosDetectionThreshold = getDosDetectionThreshold();
             if (dosDetectionThreshold != null && !dosDetectionThreshold.isEmpty()){
@@ -137,7 +137,12 @@ public class ParseStaticThreshold {
                         IPAddressString ipAddressString = new IPAddressString(sip);
                         if (ipAddressString.isIPAddress()){
                             IPAddress address = ipAddressString.getAddress();
-                            thresholdRangeMap.put(Range.closed(address.getLower(),address.getUpper()),threshold);
+                            Map<String, DosDetectionThreshold> floodTypeThresholdMap = thresholdRangeMap.get(address);
+                            if (floodTypeThresholdMap == null){
+                                floodTypeThresholdMap = new HashMap<>();
+                            }
+                            floodTypeThresholdMap.put(threshold.getAttackType(),threshold);
+                            thresholdRangeMap.put(Range.closed(address.getLower(),address.getUpper()),floodTypeThresholdMap);
                         }
                     }
                 }
@@ -149,14 +154,15 @@ public class ParseStaticThreshold {
     }
 
     public static void main(String[] args) {
-
-        TreeRangeMap<IPAddress, DosDetectionThreshold> staticThreshold = createStaticThreshold();
-        Map<Range<IPAddress>, DosDetectionThreshold> rangeDosDetectionThresholdMap = staticThreshold.asMapOfRanges();
-        Set<Range<IPAddress>> ranges = rangeDosDetectionThresholdMap.keySet();
-        for (Range<IPAddress> range:ranges){
-            System.out.println(range+"--"+rangeDosDetectionThresholdMap.get(range));
+        TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> staticThreshold = createStaticThreshold();
+        Map<Range<IPAddress>, Map<String, DosDetectionThreshold>> rangeMapMap = staticThreshold.asMapOfRanges();
+        for (Range<IPAddress> range:rangeMapMap.keySet()){
+            Map<String, DosDetectionThreshold> thresholdMap = rangeMapMap.get(range);
+            for (String type:thresholdMap.keySet()){
+                DosDetectionThreshold threshold = thresholdMap.get(type);
+                System.out.println(range+"---"+type+"---"+threshold);
+            }
         }
-
     }
 
 
