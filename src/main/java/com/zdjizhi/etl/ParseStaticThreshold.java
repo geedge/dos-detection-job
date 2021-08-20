@@ -5,6 +5,10 @@ import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosDetectionThreshold;
 import com.zdjizhi.utils.HttpClientUtils;
 import com.zdjizhi.utils.JsonMapper;
+import inet.ipaddr.IPAddress;
+import inet.ipaddr.IPAddressString;
+import org.apache.flink.shaded.guava18.com.google.common.collect.Range;
+import org.apache.flink.shaded.guava18.com.google.common.collect.TreeRangeMap;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.message.BasicHeader;
 import org.slf4j.Logger;
@@ -13,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author wlh
@@ -81,7 +87,7 @@ public class ParseStaticThreshold {
                 }
             }
         }catch (Exception e){
-            logger.error("登录失败,未获取到token",e);
+            logger.error("登录失败,未获取到token ",e);
         }
         return token;
     }
@@ -110,16 +116,47 @@ public class ParseStaticThreshold {
                 }
             }
         }catch (Exception e){
-            logger.error("获取静态阈值配置失败",e);
+            logger.error("获取静态阈值配置失败,请检查bifang服务或登录配置信息 ",e);
         }
         return thresholds;
     }
 
-    public static void main(String[] args) {
-        ArrayList<DosDetectionThreshold> dosDetectionThreshold = getDosDetectionThreshold();
-        if (dosDetectionThreshold != null && !dosDetectionThreshold.isEmpty()){
-            dosDetectionThreshold.forEach(s -> System.out.println(s.toString()));
+    /**
+     * 基于静态阈值构建threshold RangeMap，k:IP段或具体IP，v:配置信息
+     * @return threshold RangeMap
+     */
+    public static TreeRangeMap<IPAddress, DosDetectionThreshold> createStaticThreshold(){
+        TreeRangeMap<IPAddress, DosDetectionThreshold> thresholdRangeMap = null;
+        try {
+            ArrayList<DosDetectionThreshold> dosDetectionThreshold = getDosDetectionThreshold();
+            if (dosDetectionThreshold != null && !dosDetectionThreshold.isEmpty()){
+                thresholdRangeMap = TreeRangeMap.create();
+                for (DosDetectionThreshold threshold:dosDetectionThreshold){
+                    ArrayList<String> serverIpList = threshold.getServerIpList();
+                    for (String sip:serverIpList){
+                        IPAddressString ipAddressString = new IPAddressString(sip);
+                        if (ipAddressString.isIPAddress()){
+                            IPAddress address = ipAddressString.getAddress();
+                            thresholdRangeMap.put(Range.closed(address.getLower(),address.getUpper()),threshold);
+                        }
+                    }
+                }
+            }
+        }catch (Exception e){
+            logger.error("构建threshold RangeMap失败",e);
         }
+        return thresholdRangeMap;
+    }
+
+    public static void main(String[] args) {
+
+        TreeRangeMap<IPAddress, DosDetectionThreshold> staticThreshold = createStaticThreshold();
+        Map<Range<IPAddress>, DosDetectionThreshold> rangeDosDetectionThresholdMap = staticThreshold.asMapOfRanges();
+        Set<Range<IPAddress>> ranges = rangeDosDetectionThresholdMap.keySet();
+        for (Range<IPAddress> range:ranges){
+            System.out.println(range+"--"+rangeDosDetectionThresholdMap.get(range));
+        }
+
     }
 
 
