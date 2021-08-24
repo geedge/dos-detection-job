@@ -1,5 +1,6 @@
 package com.zdjizhi.etl;
 
+import com.fasterxml.jackson.databind.JavaType;
 import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosSketchLog;
 import com.zdjizhi.source.DosSketchSource;
@@ -23,6 +24,10 @@ import java.util.HashMap;
 public class ParseSketchLog {
 
     private static Logger logger = LoggerFactory.getLogger(ParseSketchLog.class);
+    private static JsonMapper jsonMapperInstance = JsonMapper.getInstance();
+    private static JavaType hashmapJsonType = jsonMapperInstance.createCollectionType(HashMap.class, String.class, Object.class);
+    private static JavaType listType = jsonMapperInstance.createCollectionType(ArrayList.class, HashMap.class);
+
 
     public static SingleOutputStreamOperator<DosSketchLog> getSketchSource(){
         return flatSketchSource().assignTimestampsAndWatermarks(createWatermarkStrategy());
@@ -43,11 +48,11 @@ public class ParseSketchLog {
         public void flatMap(String s, Collector<DosSketchLog> collector) {
             try {
                 if (StringUtil.isNotBlank(s)){
-                    HashMap<String, Object> sketchSource = (HashMap<String, Object>) JsonMapper.fromJsonString(s, Object.class);
+                    HashMap<String, Object> sketchSource = jsonMapperInstance.fromJson(s, hashmapJsonType);
                     long sketchStartTime = Long.parseLong(sketchSource.get("sketch_start_time").toString());
                     long sketchDuration = Long.parseLong(sketchSource.get("sketch_duration").toString());
                     String attackType = sketchSource.get("attack_type").toString();
-                    ArrayList<HashMap<String, Object>> reportIpList = (ArrayList<HashMap<String, Object>>) sketchSource.get("report_ip_list");
+                    ArrayList<HashMap<String, Object>> reportIpList = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(sketchSource.get("report_ip_list")), listType);
                     for (HashMap<String, Object> obj : reportIpList) {
                         DosSketchLog dosSketchLog = new DosSketchLog();
                         dosSketchLog.setSketch_start_time(sketchStartTime);

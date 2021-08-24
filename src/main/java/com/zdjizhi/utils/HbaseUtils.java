@@ -25,7 +25,6 @@ public class HbaseUtils {
     private static final Logger logger = LoggerFactory.getLogger(HbaseUtils.class);
     private static Table table = null;
     private static Scan scan = null;
-    public static Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> baselineMap = new HashMap<>();
     private static ArrayList<String> floodTypeList = new ArrayList<>();
 
     static {
@@ -33,7 +32,6 @@ public class HbaseUtils {
         floodTypeList.add("UDP Flood");
         floodTypeList.add("ICMP Flood");
         floodTypeList.add("DNS Amplification");
-        readFromHbase();
     }
 
     private static void prepareHbaseEnv() throws IOException {
@@ -54,6 +52,7 @@ public class HbaseUtils {
     }
 
     public static void main(String[] args) {
+        Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> baselineMap = readFromHbase();
         Set<String> keySet = baselineMap.keySet();
         for (String key : keySet) {
             Map<String, Tuple2<ArrayList<Integer>, Integer>> stringTuple2Map = baselineMap.get(key);
@@ -66,7 +65,8 @@ public class HbaseUtils {
         System.out.println(baselineMap.size());
     }
 
-    private static void readFromHbase() {
+    public static Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> readFromHbase() {
+        Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> baselineMap = new HashMap<>();
         try {
             prepareHbaseEnv();
             logger.info("开始读取baseline数据");
@@ -87,6 +87,7 @@ public class HbaseUtils {
         } catch (Exception e) {
             logger.error("读取hbase数据失败", e);
         }
+        return baselineMap;
     }
 
     private static Integer getDefaultValue(Result result, String family, String qualifier) {

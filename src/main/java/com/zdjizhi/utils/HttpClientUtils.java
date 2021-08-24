@@ -32,6 +32,7 @@ import java.util.Map;
 
 /**
  * http client工具类
+ * @author wlh
  */
 public class HttpClientUtils {
     /** 全局连接池对象 */

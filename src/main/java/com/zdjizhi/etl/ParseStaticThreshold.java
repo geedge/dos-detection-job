@@ -18,7 +18,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * @author wlh
@@ -39,116 +38,143 @@ public class ParseStaticThreshold {
     /**
      * 获取加密密码
      */
-    private static String getEncryptpwd(){
+    private static String getEncryptpwd() {
         String psw = HttpClientUtils.ERROR_MESSAGE;
         try {
             URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
             HashMap<String, String> parms = new HashMap<>();
-            parms.put("password",CommonConfig.BIFANG_SERVER_PASSWORD);
-            HttpClientUtils.setUrlWithParams(uriBuilder,CommonConfig.BIFANG_SERVER_ENCRYPTPWD_PATH,parms);
+            parms.put("password", CommonConfig.BIFANG_SERVER_PASSWORD);
+            HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_ENCRYPTPWD_PATH, parms);
             String resposeJsonStr = HttpClientUtils.httpGet(uriBuilder.build());
-            if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)){
+            if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)) {
                 HashMap<String, Object> resposeMap = jsonMapperInstance.fromJson(resposeJsonStr, hashmapJsonType);
-                boolean success = (boolean)resposeMap.get("success");
-                if (success){
+                boolean success = (boolean) resposeMap.get("success");
+                String msg = resposeMap.get("msg").toString();
+                if (success) {
                     HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
                     psw = data.get("encryptpwd").toString();
+                } else {
+                    logger.error(msg);
                 }
             }
-        }catch (URISyntaxException e){
-            logger.error("构造URI异常",e);
-        }catch (Exception e){
-            logger.error("获取encryptpwd失败",e);
+        } catch (URISyntaxException e) {
+            logger.error("构造URI异常", e);
+        } catch (Exception e) {
+            logger.error("获取encryptpwd失败", e);
         }
         return psw;
     }
 
     /**
      * 登录bifang服务，获取token
+     *
      * @return token
      */
-    private static String loginBifangServer(){
+    private static String loginBifangServer() {
         String token = HttpClientUtils.ERROR_MESSAGE;
         try {
-            if (!HttpClientUtils.ERROR_MESSAGE.equals(encryptpwd)){
+            if (!HttpClientUtils.ERROR_MESSAGE.equals(encryptpwd)) {
                 URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
                 HashMap<String, String> parms = new HashMap<>();
-                parms.put("username",CommonConfig.BIFANG_SERVER_USER);
-                parms.put("password",encryptpwd);
-                HttpClientUtils.setUrlWithParams(uriBuilder,CommonConfig.BIFANG_SERVER_LOGIN_PATH,parms);
+                parms.put("username", CommonConfig.BIFANG_SERVER_USER);
+                parms.put("password", encryptpwd);
+                HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_LOGIN_PATH, parms);
                 String resposeJsonStr = HttpClientUtils.httpPost(uriBuilder.build(), null);
-                if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)){
+                if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)) {
                     HashMap<String, Object> resposeMap = jsonMapperInstance.fromJson(resposeJsonStr, hashmapJsonType);
-                    boolean success = (boolean)resposeMap.get("success");
-                    if (success){
+                    boolean success = (boolean) resposeMap.get("success");
+                    String msg = resposeMap.get("msg").toString();
+                    if (success) {
                         HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
                         token = data.get("token").toString();
+                    } else {
+                        logger.error(msg);
                     }
                 }
             }
-        }catch (Exception e){
-            logger.error("登录失败,未获取到token ",e);
+        } catch (Exception e) {
+            logger.error("登录失败,未获取到token ", e);
         }
         return token;
     }
 
     /**
      * 获取静态阈值配置列表
+     *
      * @return thresholds
      */
-    private static ArrayList<DosDetectionThreshold> getDosDetectionThreshold(){
+    private static ArrayList<DosDetectionThreshold> getDosDetectionThreshold() {
         ArrayList<DosDetectionThreshold> thresholds = null;
         try {
             URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
-            HttpClientUtils.setUrlWithParams(uriBuilder,CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH,null);
+            HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH, null);
             String token = loginBifangServer();
-            if (!HttpClientUtils.ERROR_MESSAGE.equals(token)){
+            if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
                 BasicHeader authorization = new BasicHeader("Authorization", token);
                 String resposeJsonStr = HttpClientUtils.httpGet(uriBuilder.build(), authorization);
-                if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)){
+                if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)) {
                     HashMap<String, Object> resposeMap = jsonMapperInstance.fromJson(resposeJsonStr, hashmapJsonType);
-                    boolean success = (boolean)resposeMap.get("success");
-                    if (success){
+                    boolean success = (boolean) resposeMap.get("success");
+                    String msg = resposeMap.get("msg").toString();
+                    if (success) {
                         HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
                         thresholds = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(data.get("list")), thresholdType);
-                        logger.info("获取到静态阈值配置{}条",thresholds.size());
+                        logger.info("获取到静态阈值配置{}条", thresholds.size());
+                    } else {
+                        logger.error(msg);
                     }
                 }
             }
-        }catch (Exception e){
-            logger.error("获取静态阈值配置失败,请检查bifang服务或登录配置信息 ",e);
+        } catch (Exception e) {
+            logger.error("获取静态阈值配置失败,请检查bifang服务或登录配置信息 ", e);
         }
         return thresholds;
     }
 
     /**
      * 基于静态阈值构建threshold RangeMap，k:IP段或具体IP，v:配置信息
+     *
      * @return threshold RangeMap
      */
-    public static TreeRangeMap<IPAddress, Map<String,DosDetectionThreshold>> createStaticThreshold(){
-        TreeRangeMap<IPAddress, Map<String,DosDetectionThreshold>> thresholdRangeMap = null;
+    static TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> createStaticThreshold() {
+        TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> thresholdRangeMap = TreeRangeMap.create();
         try {
             ArrayList<DosDetectionThreshold> dosDetectionThreshold = getDosDetectionThreshold();
-            if (dosDetectionThreshold != null && !dosDetectionThreshold.isEmpty()){
-                thresholdRangeMap = TreeRangeMap.create();
-                for (DosDetectionThreshold threshold:dosDetectionThreshold){
+            if (dosDetectionThreshold != null && !dosDetectionThreshold.isEmpty()) {
+                for (DosDetectionThreshold threshold : dosDetectionThreshold) {
+                    String attackType = threshold.getAttackType();
+                    switch (attackType) {
+                        case "tcp_syn_flood":
+                            threshold.setAttackType("TCP SYN Flood");
+                            break;
+                        case "udp_flood":
+                            threshold.setAttackType("UDP Flood");
+                            break;
+                        case "icmp_flood":
+                            threshold.setAttackType("ICMP Flood");
+                            break;
+                        case "dns_amplification":
+                            threshold.setAttackType("DNS Amplification");
+                            break;
+                        default:
+                    }
                     ArrayList<String> serverIpList = threshold.getServerIpList();
-                    for (String sip:serverIpList){
+                    for (String sip : serverIpList) {
                         IPAddressString ipAddressString = new IPAddressString(sip);
-                        if (ipAddressString.isIPAddress()){
+                        if (ipAddressString.isIPAddress()) {
                             IPAddress address = ipAddressString.getAddress();
                             Map<String, DosDetectionThreshold> floodTypeThresholdMap = thresholdRangeMap.get(address);
-                            if (floodTypeThresholdMap == null){
+                            if (floodTypeThresholdMap == null) {
                                 floodTypeThresholdMap = new HashMap<>();
                             }
-                            floodTypeThresholdMap.put(threshold.getAttackType(),threshold);
-                            thresholdRangeMap.put(Range.closed(address.getLower(),address.getUpper()),floodTypeThresholdMap);
+                            floodTypeThresholdMap.put(threshold.getAttackType(), threshold);
+                            thresholdRangeMap.put(Range.closed(address.getLower(), address.getUpper()), floodTypeThresholdMap);
                         }
                     }
                 }
             }
-        }catch (Exception e){
-            logger.error("构建threshold RangeMap失败",e);
+        } catch (Exception e) {
+            logger.error("构建threshold RangeMap失败", e);
         }
         return thresholdRangeMap;
     }
@@ -156,11 +182,11 @@ public class ParseStaticThreshold {
     public static void main(String[] args) {
         TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> staticThreshold = createStaticThreshold();
         Map<Range<IPAddress>, Map<String, DosDetectionThreshold>> rangeMapMap = staticThreshold.asMapOfRanges();
-        for (Range<IPAddress> range:rangeMapMap.keySet()){
+        for (Range<IPAddress> range : rangeMapMap.keySet()) {
             Map<String, DosDetectionThreshold> thresholdMap = rangeMapMap.get(range);
-            for (String type:thresholdMap.keySet()){
+            for (String type : thresholdMap.keySet()) {
                 DosDetectionThreshold threshold = thresholdMap.get(type);
-                System.out.println(range+"---"+type+"---"+threshold);
+                System.out.println(range + "---" + type + "---" + threshold);
             }
         }
     }
