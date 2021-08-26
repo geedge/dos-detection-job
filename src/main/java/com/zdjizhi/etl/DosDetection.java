@@ -18,8 +18,8 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.TreeRangeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.text.NumberFormat;
-import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -103,14 +103,14 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         }
     }
 
-    private Tuple2<Severity, DosEventLog> getDosEventLogByBaseline(DosSketchLog value, String destinationIp, String attackType) throws ParseException {
+    private Tuple2<Severity, DosEventLog> getDosEventLogByBaseline(DosSketchLog value, String destinationIp, String attackType) {
         Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
         Integer base = getBaseValue(floodTypeTup, value);
         long diff = value.getSketch_sessions() - base;
         return getDosEventLog(value, base, diff, "baseline");
     }
 
-    private Tuple2<Severity, DosEventLog> getDosEventLogByStaticThreshold(DosSketchLog value, Map<String, DosDetectionThreshold> thresholdMap) throws ParseException {
+    private Tuple2<Severity, DosEventLog> getDosEventLogByStaticThreshold(DosSketchLog value, Map<String, DosDetectionThreshold> thresholdMap) {
         Tuple2<Severity, DosEventLog> result = Tuple2.of(Severity.NORMAL, null);
         String attackType = value.getAttack_type();
         if (thresholdMap.containsKey(attackType)) {
@@ -122,18 +122,17 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return result;
     }
 
-    private Tuple2<Severity, DosEventLog> getDosEventLog(DosSketchLog value, long base, long diff, String tag) throws ParseException {
+    private Tuple2<Severity, DosEventLog> getDosEventLog(DosSketchLog value, long base, long diff, String tag) {
         DosEventLog result = null;
         String destinationIp = value.getDestination_ip();
         String attackType = value.getAttack_type();
         Severity severity = Severity.NORMAL;
         if (diff > 0 && base != 0) {
-            String percent = getDiffPercent(diff, base);
-            double diffPercentDouble = getDiffPercentDouble(percent);
-            severity = judgeSeverity(diffPercentDouble);
+            double percent = getDiffPercent(diff, base);
+            severity = judgeSeverity(percent);
             if (severity != Severity.NORMAL) {
                 result = getResult(value, severity, percent, tag);
-                logger.info("检测到当前server IP {} 存在 {} 异常,日志详情\n {}", destinationIp, attackType, result.toString());
+                logger.info("检测到当前server IP {} 存在 {} 异常,超出基线{} {}倍,日志详情\n {}", destinationIp,attackType,base,percent,result);
             } else {
                 logger.debug("当前server IP：{} 未出现 {} 异常,日志详情 {}", destinationIp, attackType, value.toString());
             }
@@ -141,14 +140,14 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return Tuple2.of(severity, result);
     }
 
-    private DosEventLog getResult(DosSketchLog value, Severity severity, String percent, String tag) {
+    private DosEventLog getResult(DosSketchLog value, Severity severity, double percent, String tag) {
         DosEventLog dosEventLog = new DosEventLog();
         dosEventLog.setLog_id(SnowflakeId.generateId());
         dosEventLog.setStart_time(value.getSketch_start_time());
         dosEventLog.setEnd_time(value.getSketch_start_time() + CommonConfig.FLINK_WINDOW_MAX_TIME);
         dosEventLog.setAttack_type(value.getAttack_type());
         dosEventLog.setSeverity(severity.severity);
-        dosEventLog.setConditions(getConditions(percent, value.getSketch_sessions(), tag));
+        dosEventLog.setConditions(getConditions(PERCENT_INSTANCE.format(percent), value.getSketch_sessions(), tag));
         dosEventLog.setDestination_ip(value.getDestination_ip());
         dosEventLog.setDestination_country(IpUtils.ipLookup.countryLookup(value.getDestination_ip()));
         String ipList = value.getSource_ip();
@@ -207,14 +206,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return Integer.parseInt(Long.toString(indexLong));
     }
 
-    private String getDiffPercent(long diff, long base) {
-        double diffDou = Double.parseDouble(Long.toString(diff));
-        double baseDou = Double.parseDouble(Long.toString(base));
-        return PERCENT_INSTANCE.format(diffDou / baseDou);
-    }
-
-    private double getDiffPercentDouble(String diffPercent) throws ParseException {
-        return PERCENT_INSTANCE.parse(diffPercent).doubleValue();
+    private Double getDiffPercent(long diff, long base) {
+        return BigDecimal.valueOf((float)diff/base).setScale(4, BigDecimal.ROUND_HALF_UP).doubleValue();
     }
 
     private Severity judgeSeverity(double diffPercent) {
