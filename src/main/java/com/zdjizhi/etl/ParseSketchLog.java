@@ -65,9 +65,9 @@ public class ParseSketchLog {
                         long sketchBytes = Long.parseLong(obj.get("sketch_bytes").toString());
                         dosSketchLog.setSource_ip(sourceIp);
                         dosSketchLog.setDestination_ip(destinationIp);
-                        dosSketchLog.setSketch_sessions(sketchSessions/sketchDuration);
-                        dosSketchLog.setSketch_packets(sketchPackets/sketchDuration);
-                        dosSketchLog.setSketch_bytes(sketchBytes*8/sketchDuration);
+                        dosSketchLog.setSketch_sessions(sketchSessions);
+                        dosSketchLog.setSketch_packets(sketchPackets);
+                        dosSketchLog.setSketch_bytes(sketchBytes);
                         collector.collect(dosSketchLog);
                         logger.debug("数据解析成功：{}",dosSketchLog.toString());
                     }

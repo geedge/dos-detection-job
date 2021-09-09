@@ -80,7 +80,7 @@ public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosS
                 }
             }
             String sourceIpList = StringUtils.join(sourceIpSet, ",");
-            return Tuple6.of(sessions/cnt,packets/cnt,bytes/cnt,sourceIpList,startTime,duration);
+            return Tuple6.of(sessions/cnt/duration,packets/cnt/duration,bytes/cnt/duration,sourceIpList,startTime,duration);
         }catch (Exception e){
             logger.error("聚合中间结果集失败 {}",e);
         }
