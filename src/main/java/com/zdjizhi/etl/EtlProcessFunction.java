@@ -69,15 +69,19 @@ public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosS
         HashSet<String> sourceIpSet = new HashSet<>();
         try {
             for (DosSketchLog newSketchLog : elements){
-                sessions += newSketchLog.getSketch_sessions();
-                packets += newSketchLog.getSketch_packets();
-                bytes += newSketchLog.getSketch_bytes();
-                startTime = newSketchLog.getSketch_start_time();
-                duration = newSketchLog.getSketch_duration();
-                cnt += 1;
-                if (sourceIpSet.size() < CommonConfig.SOURCE_IP_LIST_LIMIT){
-                    sourceIpSet.add(newSketchLog.getSource_ip());
+                String sourceIp = newSketchLog.getSource_ip();
+                if ("0.0.0.0".equals(sourceIp) || "::".equals(sourceIp)){
+                    sessions += newSketchLog.getSketch_sessions();
+                    packets += newSketchLog.getSketch_packets();
+                    bytes += newSketchLog.getSketch_bytes();
+                    startTime = newSketchLog.getSketch_start_time();
+                    duration = newSketchLog.getSketch_duration();
+                }else {
+                    if (sourceIpSet.size() < CommonConfig.SOURCE_IP_LIST_LIMIT){
+                        sourceIpSet.add(sourceIp);
+                    }
                 }
+                cnt += 1;
             }
             String sourceIpList = StringUtils.join(sourceIpSet, ",");
 //            return Tuple6.of(sessions/cnt/duration,packets/cnt/duration,bytes/cnt/duration,sourceIpList,startTime,duration);

@@ -108,7 +108,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
         Integer base = getBaseValue(floodTypeTup, value);
         long sketchSessions = value.getSketch_sessions();
-        return sketchSessions > CommonConfig.SENSITIVITY_THRESHOLD ? getDosEventLog(value, base, sketchSessions - base, "baseline"):Tuple2.of(Severity.NORMAL, null);
+        return sketchSessions > CommonConfig.SENSITIVITY_THRESHOLD ?
+                getDosEventLog(value, base, sketchSessions - base, "baseline") : Tuple2.of(Severity.NORMAL, null);
     }
 
     private Tuple2<Severity, DosEventLog> getDosEventLogByStaticThreshold(DosSketchLog value, Map<String, DosDetectionThreshold> thresholdMap) {
