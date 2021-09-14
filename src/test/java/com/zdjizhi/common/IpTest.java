@@ -41,7 +41,16 @@ public class IpTest {
         IPAddress pv43 = new IPAddressString("fc00::").getAddress();
         IPAddress pv44 = new IPAddressString("fc00::10:1").getAddress();
 
-        IPAddress pv45 = new IPAddressString("12.56.4.0/32").getAddress();
+        IPAddress pv45 = new IPAddressString("12.56.4.3/24").getAddress();
+        IPAddress pv46 = new IPAddressString("12.56.4.0/24").getAddress();
+        IPAddress pv47 = new IPAddressString("12.56.4.0").getAddress();
+        System.out.println(pv45.isMultiple());
+        System.out.println(pv46.isMultiple());
+        System.out.println(pv46.isPrefixed());
+        System.out.println(pv47.isPrefixed());
+        System.out.println(pv45+"---"+pv45.toMaxHost().withoutPrefixLength()+"---"+pv45.adjustPrefixLength(pv45.getBitCount()));
+
+        /*
         System.out.println(str5.getUpper()+"---"+str5.getLower());
 
         System.out.println(rangeMap.span().contains(pv4));
@@ -50,6 +59,7 @@ public class IpTest {
         System.out.println(rangeMap.get(pv42));
         System.out.println(rangeMap.get(pv43));
         System.out.println(rangeMap.get(pv44));
+        */
 
         /*
         System.out.println(str5.toSequentialRange());
