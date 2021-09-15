@@ -48,8 +48,7 @@ public class CommonConfig {
     public static final double BASELINE_SESSIONS_CRITICAL_THRESHOLD = CommonConfigurations.getDoubleProperty("baseline.sessions.critical.threshold");
 
     public static final String BIFANG_SERVER_URI = CommonConfigurations.getStringProperty("bifang.server.uri");
-    public static final String BIFANG_SERVER_USER = CommonConfigurations.getStringProperty("bifang.server.user");
-    public static final String BIFANG_SERVER_PASSWORD = CommonConfigurations.getStringProperty("bifang.server.password");
+    public static final String BIFANG_SERVER_TOKEN = CommonConfigurations.getStringProperty("bifang.server.token");
     public static final String BIFANG_SERVER_ENCRYPTPWD_PATH = CommonConfigurations.getStringProperty("bifang.server.encryptpwd.path");
     public static final String BIFANG_SERVER_LOGIN_PATH = CommonConfigurations.getStringProperty("bifang.server.login.path");
     public static final String BIFANG_SERVER_POLICY_THRESHOLD_PATH = CommonConfigurations.getStringProperty("bifang.server.policy.threshold.path");

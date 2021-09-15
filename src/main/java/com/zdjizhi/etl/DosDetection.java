@@ -4,6 +4,7 @@ import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosDetectionThreshold;
 import com.zdjizhi.common.DosEventLog;
 import com.zdjizhi.common.DosSketchLog;
+import com.zdjizhi.utils.DateUtils;
 import com.zdjizhi.utils.HbaseUtils;
 import com.zdjizhi.utils.IpUtils;
 import com.zdjizhi.utils.SnowflakeId;
@@ -194,14 +195,17 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     }
 
     private int getCurrentTimeIndex(long sketchStartTime) {
-        long currentDayTime = sketchStartTime / (60 * 60 * 24) * 60 * 60 * 24;
+        long currentDayTime = DateUtils.getTimeFloor(new Date(sketchStartTime * 1000L), "P1D").getTime()/1000;
         long indexLong = (sketchStartTime - currentDayTime) / 600;
         return Integer.parseInt(Long.toString(indexLong));
     }
 
     public static void main(String[] args) {
-        System.out.println(1631579940 / (60 * 60) * 60 * 60);
-        System.out.println(new DosDetection().getCurrentTimeIndex(1631579940));
+        Date date = new Date(1631548860 * 1000L);
+        System.out.println(date);
+        Date p1D = DateUtils.getTimeFloor(date, "P1D");
+        System.out.println(p1D+" "+p1D.getTime()/1000);
+        System.out.println(new DosDetection().getCurrentTimeIndex(1631548860));
     }
 
     private Double getDiffPercent(long diff, long base) {
