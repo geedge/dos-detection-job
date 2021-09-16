@@ -4,6 +4,7 @@ import com.zdjizhi.common.CommonConfig;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 
+import java.util.Optional;
 import java.util.Properties;
 
 public class KafkaUtils {
@@ -24,7 +25,8 @@ public class KafkaUtils {
         return new FlinkKafkaProducer<String>(
                 topic,
                 new SimpleStringSchema(),
-                getKafkaSinkProperty()
+                getKafkaSinkProperty(),
+                Optional.empty()
         );
     }
 
