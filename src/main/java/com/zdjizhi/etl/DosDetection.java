@@ -42,15 +42,11 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(2,
                 new BasicThreadFactory.Builder().namingPattern("Dos-Detection-%d").daemon(true).build());
         try {
-            executorService.scheduleAtFixedRate(() -> {
-                //do something
-                thresholdRangeMap = ParseStaticThreshold.createStaticThreshold();
-            }, 0, CommonConfig.STATIC_THRESHOLD_SCHEDULE_MINUTES, TimeUnit.MINUTES);
+            executorService.scheduleAtFixedRate(() -> thresholdRangeMap = ParseStaticThreshold.createStaticThreshold(), 0,
+                    CommonConfig.STATIC_THRESHOLD_SCHEDULE_MINUTES, TimeUnit.MINUTES);
 
-            executorService.scheduleAtFixedRate(() -> {
-                //do something
-                baselineMap = HbaseUtils.readFromHbase();
-            }, 0, CommonConfig.BASELINE_THRESHOLD_SCHEDULE_DAYS, TimeUnit.DAYS);
+            executorService.scheduleAtFixedRate(() -> baselineMap = HbaseUtils.readFromHbase(), 0,
+                    CommonConfig.BASELINE_THRESHOLD_SCHEDULE_DAYS, TimeUnit.DAYS);
         } catch (Exception e) {
             logger.error("定时器任务执行失败", e);
         }
@@ -67,10 +63,10 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
             Map<String, DosDetectionThreshold> thresholdMap = thresholdRangeMap.get(destinationIpAddress);
             logger.debug("当前判断IP：{}, 类型: {}", destinationIp, attackType);
             if (thresholdMap == null && baselineMap.containsKey(destinationIp)) {
-                finalResult = getDosEventLogByBaseline(value, destinationIp, attackType);
+                finalResult = getDosEventLogByBaseline(value);
             }else if (thresholdMap == null && !baselineMap.containsKey(destinationIp)){
                 finalResult = getDosEventLogBySensitivityThreshold(value);
-            } else if (thresholdMap != null){
+            }else if (thresholdMap != null){
                 finalResult = getDosEventLogByStaticThreshold(value, thresholdMap);
             }else {
                 logger.debug("未获取到当前server IP：{} 类型 {} 静态阈值 和 baseline", destinationIp, attackType);
@@ -92,8 +88,10 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return result;
     }
 
-    private DosEventLog getDosEventLogByBaseline(DosSketchLog value, String destinationIp, String attackType) {
+    private DosEventLog getDosEventLogByBaseline(DosSketchLog value) {
         DosEventLog result = null;
+        String destinationIp = value.getDestination_ip();
+        String attackType = value.getAttack_type();
         long sketchSessions = value.getSketch_sessions();
         if (sketchSessions > CommonConfig.STATIC_SENSITIVITY_THRESHOLD){
             Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
@@ -127,7 +125,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
                     logger.debug("当前server IP:{},类型:{},基线值{}百分比{}未超过基线敏感阈值,日志详情\n{}",destinationIp,attackType,base,percent,value);
                 }else {
                     result = getResult(value,base, severity, percent, tag);
-                    logger.info("检测到当前server IP {} 存在 {} 异常,超出基线{} {}倍,日志详情\n {}", destinationIp,attackType,base,percent,result);
+                    logger.info("检测到当前server IP {} 存在 {} 异常,超出基线{} {}倍,基于{}检测,日志详情\n {}", destinationIp,attackType,base,percent,tag,result);
                 }
             } else {
                 logger.debug("当前server IP:{} 未出现 {} 异常,日志详情 {}", destinationIp, attackType, value);
