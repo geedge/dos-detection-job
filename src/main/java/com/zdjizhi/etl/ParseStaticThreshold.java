@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -180,7 +179,19 @@ public class ParseStaticThreshold {
                                     thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
                                 }
                             }else {
-                                thresholdRangeMap.put(Range.closed(address, address), floodTypeThresholdMap);
+                                Map.Entry<Range<IPAddress>, Map<String, DosDetectionThreshold>> entry = thresholdRangeMap.getEntry(address);
+                                if (entry != null){
+                                    Range<IPAddress> entryKey = entry.getKey();
+                                    Map<String, DosDetectionThreshold> entryValue = entry.getValue();
+                                    entryValue.put(threshold.getAttackType(), threshold);
+                                    if (entryKey.lowerEndpoint() == entryKey.upperEndpoint()){
+                                        thresholdRangeMap.put(Range.closed(address, address), entryValue);
+                                    }else {
+                                        thresholdRangeMap.put(Range.closed(address, address), floodTypeThresholdMap);
+                                    }
+                                }else {
+                                    thresholdRangeMap.put(Range.closed(address, address), floodTypeThresholdMap);
+                                }
                             }
                         }
                     }

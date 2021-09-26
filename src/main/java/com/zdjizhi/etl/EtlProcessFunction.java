@@ -60,11 +60,11 @@ public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosS
     }
 
     private Tuple6<Long, Long, Long,String,Long,Long> sketchAggregate(Iterable<DosSketchLog> elements){
-        int cnt = 1;
         long sessions = 0;
         long packets = 0 ;
         long bytes = 0;
-        long startTime = 0;
+        long startTime = System.currentTimeMillis()/1000;
+        long endTime = System.currentTimeMillis()/1000;
         long duration = 0;
         HashSet<String> sourceIpSet = new HashSet<>();
         try {
@@ -74,17 +74,16 @@ public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosS
                     sessions += newSketchLog.getSketch_sessions();
                     packets += newSketchLog.getSketch_packets();
                     bytes += newSketchLog.getSketch_bytes();
-                    startTime = newSketchLog.getSketch_start_time();
-                    duration = newSketchLog.getSketch_duration();
+                    startTime = newSketchLog.getSketch_start_time() > startTime ? startTime : newSketchLog.getSketch_start_time();
+                    endTime = newSketchLog.getSketch_start_time() > endTime ? newSketchLog.getSketch_start_time() : endTime;
+                    duration = endTime - startTime == 0 ? 5 : endTime - startTime;
                 }else {
                     if (sourceIpSet.size() < CommonConfig.SOURCE_IP_LIST_LIMIT){
                         sourceIpSet.add(sourceIp);
                     }
                 }
-                cnt += 1;
             }
             String sourceIpList = StringUtils.join(sourceIpSet, ",");
-//            return Tuple6.of(sessions/cnt/duration,packets/cnt/duration,bytes/cnt/duration,sourceIpList,startTime,duration);
             return Tuple6.of(sessions/CommonConfig.FLINK_WINDOW_MAX_TIME,packets/CommonConfig.FLINK_WINDOW_MAX_TIME,
                     bytes*8/CommonConfig.FLINK_WINDOW_MAX_TIME,sourceIpList,startTime,duration);
         }catch (Exception e){

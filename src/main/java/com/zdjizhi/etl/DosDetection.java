@@ -138,7 +138,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         DosEventLog dosEventLog = new DosEventLog();
         dosEventLog.setLog_id(SnowflakeId.generateId());
         dosEventLog.setStart_time(value.getSketch_start_time());
-        dosEventLog.setEnd_time(value.getSketch_start_time() + CommonConfig.FLINK_WINDOW_MAX_TIME);
+        dosEventLog.setEnd_time(value.getSketch_start_time() + value.getSketch_duration());
         dosEventLog.setAttack_type(value.getAttack_type());
         dosEventLog.setSeverity(severity.severity);
         dosEventLog.setConditions(getConditions(PERCENT_INSTANCE.format(percent),base, value.getSketch_sessions(), tag));
