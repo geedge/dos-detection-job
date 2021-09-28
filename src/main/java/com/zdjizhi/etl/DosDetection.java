@@ -62,11 +62,11 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
             IPAddress destinationIpAddress = new IPAddressString(destinationIp).getAddress();
             Map<String, DosDetectionThreshold> thresholdMap = thresholdRangeMap.get(destinationIpAddress);
             logger.debug("当前判断IP：{}, 类型: {}", destinationIp, attackType);
-            if (thresholdMap == null && baselineMap.containsKey(destinationIp)) {
+            if ((thresholdMap == null || !thresholdMap.containsKey(attackType)) && baselineMap.containsKey(destinationIp)) {
                 finalResult = getDosEventLogByBaseline(value);
-            }else if (thresholdMap == null && !baselineMap.containsKey(destinationIp)){
+            }else if ((thresholdMap == null || !thresholdMap.containsKey(attackType)) && !baselineMap.containsKey(destinationIp)){
                 finalResult = getDosEventLogBySensitivityThreshold(value);
-            }else if (thresholdMap != null){
+            }else if (thresholdMap != null && thresholdMap.containsKey(attackType)){
                 finalResult = getDosEventLogByStaticThreshold(value, thresholdMap);
             }else {
                 logger.debug("未获取到当前server IP：{} 类型 {} 静态阈值 和 baseline", destinationIp, attackType);
@@ -209,6 +209,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         System.out.println(p1D+" "+p1D.getTime()/1000);
         System.out.println(new DosDetection().getCurrentTimeIndex(1631548860));
         System.out.println(10+10*0.2);
+        Map<String, DosDetectionThreshold> thresholdMap = null;
+        System.out.println(thresholdMap.containsKey("a"));
     }
 
     private Double getDiffPercent(long diff, long base) {
