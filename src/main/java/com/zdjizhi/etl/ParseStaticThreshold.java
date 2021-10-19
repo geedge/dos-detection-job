@@ -108,15 +108,15 @@ public class ParseStaticThreshold {
         try {
             URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
             HashMap<String, Object> parms = new HashMap<>();
-            parms.put("pageSize",-1);
-            parms.put("orderBy","profileId asc");
-            parms.put("isValid",1);
+            parms.put("pageSize", -1);
+            parms.put("orderBy", "profileId asc");
+            parms.put("isValid", 1);
             HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH, parms);
             String token = CommonConfig.BIFANG_SERVER_TOKEN;
             if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
                 BasicHeader authorization = new BasicHeader("Authorization", token);
                 BasicHeader authorization1 = new BasicHeader("Content-Type", "application/x-www-form-urlencoded");
-                String resposeJsonStr = HttpClientUtils.httpGet(uriBuilder.build(), authorization,authorization1);
+                String resposeJsonStr = HttpClientUtils.httpGet(uriBuilder.build(), authorization, authorization1);
                 if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)) {
                     HashMap<String, Object> resposeMap = jsonMapperInstance.fromJson(resposeJsonStr, hashmapJsonType);
                     boolean success = (boolean) resposeMap.get("success");
@@ -154,42 +154,42 @@ public class ParseStaticThreshold {
                             IPAddress address = ipAddressString.getAddress();
                             Map<String, DosDetectionThreshold> floodTypeThresholdMap = new HashMap<>();
                             floodTypeThresholdMap.put(threshold.getAttackType(), threshold);
-                            if (address.isPrefixed()){
+                            if (address.isPrefixed()) {
                                 IPAddress lower = address.getLower();
                                 IPAddress upper = address.getUpper();
-                                if (!address.isMultiple()){
+                                if (!address.isMultiple()) {
                                     lower = address.adjustPrefixLength(address.getBitCount());
                                     upper = address.toMaxHost().withoutPrefixLength();
                                 }
                                 Map.Entry<Range<IPAddress>, Map<String, DosDetectionThreshold>> lowerEntry = thresholdRangeMap.getEntry(lower);
                                 Map.Entry<Range<IPAddress>, Map<String, DosDetectionThreshold>> upperEntry = thresholdRangeMap.getEntry(upper);
-                                if (lowerEntry == null && upperEntry == null){
-                                    thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
-                                }else if (lowerEntry != null && upperEntry == null){
+                                if (lowerEntry != null && upperEntry == null) {
                                     Range<IPAddress> lowerEntryKey = lowerEntry.getKey();
                                     Map<String, DosDetectionThreshold> lowerEntryValue = lowerEntry.getValue();
                                     lowerEntryValue.put(threshold.getAttackType(), threshold);
                                     thresholdRangeMap.put(Range.closedOpen(lowerEntryKey.lowerEndpoint(), lower), lowerEntryValue);
                                     thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
-                                }else if (lowerEntry == null){
+                                } else if (lowerEntry == null && upperEntry != null) {
                                     Range<IPAddress> upperEntryKey = upperEntry.getKey();
                                     Map<String, DosDetectionThreshold> upperEntryValue = upperEntry.getValue();
                                     upperEntryValue.put(threshold.getAttackType(), threshold);
                                     thresholdRangeMap.put(Range.openClosed(upper, upperEntryKey.upperEndpoint()), upperEntryValue);
                                     thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
+                                } else {
+                                    thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
                                 }
-                            }else {
+                            } else {
                                 Map.Entry<Range<IPAddress>, Map<String, DosDetectionThreshold>> entry = thresholdRangeMap.getEntry(address);
-                                if (entry != null){
+                                if (entry != null) {
                                     Range<IPAddress> entryKey = entry.getKey();
                                     Map<String, DosDetectionThreshold> entryValue = entry.getValue();
-                                    entryValue.put(threshold.getAttackType(), threshold);
-                                    if (entryKey.lowerEndpoint() == entryKey.upperEndpoint()){
+                                    if (entryKey.lowerEndpoint() == entryKey.upperEndpoint()) {
+                                        entryValue.put(threshold.getAttackType(), threshold);
                                         thresholdRangeMap.put(Range.closed(address, address), entryValue);
-                                    }else {
+                                    } else {
                                         thresholdRangeMap.put(Range.closed(address, address), floodTypeThresholdMap);
                                     }
-                                }else {
+                                } else {
                                     thresholdRangeMap.put(Range.closed(address, address), floodTypeThresholdMap);
                                 }
                             }
