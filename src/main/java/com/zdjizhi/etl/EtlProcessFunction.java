@@ -21,6 +21,9 @@ import static com.zdjizhi.sink.OutputStreamSink.outputTag;
 public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosSketchLog, Tuple2<String,String>, TimeWindow> {
 
     private static final Logger logger = LoggerFactory.getLogger(EtlProcessFunction.class);
+    private static final String EMPTY_SOURCE_IP_IPV4 = "0.0.0.0";
+    private static final String EMPTY_SOURCE_IP_IPV6 = "::";
+
     @Override
     public void process(Tuple2<String, String> keys,
                         Context context, Iterable<DosSketchLog> elements,
@@ -70,7 +73,7 @@ public class EtlProcessFunction extends ProcessWindowFunction<DosSketchLog, DosS
         try {
             for (DosSketchLog newSketchLog : elements){
                 String sourceIp = newSketchLog.getSource_ip();
-                if ("0.0.0.0".equals(sourceIp) || "::".equals(sourceIp)){
+                if (StringUtils.equals(sourceIp,EMPTY_SOURCE_IP_IPV4) || StringUtils.equals(sourceIp,EMPTY_SOURCE_IP_IPV6)){
                     sessions += newSketchLog.getSketch_sessions();
                     packets += newSketchLog.getSketch_packets();
                     bytes += newSketchLog.getSketch_bytes();

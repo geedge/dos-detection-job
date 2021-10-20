@@ -141,19 +141,19 @@ public class ParseStaticThreshold {
      *
      * @return threshold RangeMap
      */
-    static TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> createStaticThreshold() {
-        TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> thresholdRangeMap = TreeRangeMap.create();
+    static HashMap<String, TreeRangeMap<IPAddress, DosDetectionThreshold>> createStaticThreshold() {
+        HashMap<String, TreeRangeMap<IPAddress, DosDetectionThreshold>> thresholdRangeMap = new HashMap<>(4);
         try {
             ArrayList<DosDetectionThreshold> dosDetectionThreshold = getDosDetectionThreshold();
             if (dosDetectionThreshold != null && !dosDetectionThreshold.isEmpty()) {
                 for (DosDetectionThreshold threshold : dosDetectionThreshold) {
+                    String attackType = threshold.getAttackType();
+                    TreeRangeMap<IPAddress, DosDetectionThreshold> treeRangeMap = thresholdRangeMap.getOrDefault(attackType, TreeRangeMap.create());
                     ArrayList<String> serverIpList = threshold.getServerIpList();
                     for (String sip : serverIpList) {
                         IPAddressString ipAddressString = new IPAddressString(sip);
                         if (ipAddressString.isIPAddress()) {
                             IPAddress address = ipAddressString.getAddress();
-                            Map<String, DosDetectionThreshold> floodTypeThresholdMap = new HashMap<>();
-                            floodTypeThresholdMap.put(threshold.getAttackType(), threshold);
                             if (address.isPrefixed()) {
                                 IPAddress lower = address.getLower();
                                 IPAddress upper = address.getUpper();
@@ -161,40 +161,27 @@ public class ParseStaticThreshold {
                                     lower = address.adjustPrefixLength(address.getBitCount());
                                     upper = address.toMaxHost().withoutPrefixLength();
                                 }
-                                Map.Entry<Range<IPAddress>, Map<String, DosDetectionThreshold>> lowerEntry = thresholdRangeMap.getEntry(lower);
-                                Map.Entry<Range<IPAddress>, Map<String, DosDetectionThreshold>> upperEntry = thresholdRangeMap.getEntry(upper);
+                                Map.Entry<Range<IPAddress>, DosDetectionThreshold> lowerEntry = treeRangeMap.getEntry(lower);
+                                Map.Entry<Range<IPAddress>, DosDetectionThreshold> upperEntry = treeRangeMap.getEntry(upper);
                                 if (lowerEntry != null && upperEntry == null) {
                                     Range<IPAddress> lowerEntryKey = lowerEntry.getKey();
-                                    Map<String, DosDetectionThreshold> lowerEntryValue = lowerEntry.getValue();
-                                    lowerEntryValue.put(threshold.getAttackType(), threshold);
-                                    thresholdRangeMap.put(Range.closedOpen(lowerEntryKey.lowerEndpoint(), lower), lowerEntryValue);
-                                    thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
+                                    DosDetectionThreshold lowerEntryValue = lowerEntry.getValue();
+                                    treeRangeMap.put(Range.closedOpen(lowerEntryKey.lowerEndpoint(), lower), lowerEntryValue);
+                                    treeRangeMap.put(Range.closed(lower, upper), threshold);
                                 } else if (lowerEntry == null && upperEntry != null) {
                                     Range<IPAddress> upperEntryKey = upperEntry.getKey();
-                                    Map<String, DosDetectionThreshold> upperEntryValue = upperEntry.getValue();
-                                    upperEntryValue.put(threshold.getAttackType(), threshold);
-                                    thresholdRangeMap.put(Range.openClosed(upper, upperEntryKey.upperEndpoint()), upperEntryValue);
-                                    thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
+                                    DosDetectionThreshold upperEntryValue = upperEntry.getValue();
+                                    treeRangeMap.put(Range.openClosed(upper, upperEntryKey.upperEndpoint()), upperEntryValue);
+                                    treeRangeMap.put(Range.closed(lower, upper), threshold);
                                 } else {
-                                    thresholdRangeMap.put(Range.closed(lower, upper), floodTypeThresholdMap);
+                                    treeRangeMap.put(Range.closed(lower, upper), threshold);
                                 }
                             } else {
-                                Map.Entry<Range<IPAddress>, Map<String, DosDetectionThreshold>> entry = thresholdRangeMap.getEntry(address);
-                                if (entry != null) {
-                                    Range<IPAddress> entryKey = entry.getKey();
-                                    Map<String, DosDetectionThreshold> entryValue = entry.getValue();
-                                    if (entryKey.lowerEndpoint() == entryKey.upperEndpoint()) {
-                                        entryValue.put(threshold.getAttackType(), threshold);
-                                        thresholdRangeMap.put(Range.closed(address, address), entryValue);
-                                    } else {
-                                        thresholdRangeMap.put(Range.closed(address, address), floodTypeThresholdMap);
-                                    }
-                                } else {
-                                    thresholdRangeMap.put(Range.closed(address, address), floodTypeThresholdMap);
-                                }
+                                treeRangeMap.put(Range.closed(address, address), threshold);
                             }
                         }
                     }
+                    thresholdRangeMap.put(attackType,treeRangeMap);
                 }
             }
         } catch (Exception e) {
@@ -210,16 +197,17 @@ public class ParseStaticThreshold {
 
 
         System.out.println("------------------------");
-        TreeRangeMap<IPAddress, Map<String, DosDetectionThreshold>> staticThreshold = createStaticThreshold();
+        HashMap<String, TreeRangeMap<IPAddress, DosDetectionThreshold>> staticThreshold = createStaticThreshold();
 
         System.out.println("------------------------");
-        Map<Range<IPAddress>, Map<String, DosDetectionThreshold>> rangeMapMap = staticThreshold.asMapOfRanges();
-        for (Range<IPAddress> range : rangeMapMap.keySet()) {
-            Map<String, DosDetectionThreshold> thresholdMap = rangeMapMap.get(range);
-            for (String type : thresholdMap.keySet()) {
-                DosDetectionThreshold threshold = thresholdMap.get(type);
-                System.out.println(range + "---" + type + "---" + threshold);
+
+        for (String type : staticThreshold.keySet()) {
+            Map<Range<IPAddress>, DosDetectionThreshold> asMapOfRanges = staticThreshold.get(type).asMapOfRanges();
+            for (Range<IPAddress> range : asMapOfRanges.keySet()) {
+                DosDetectionThreshold threshold = asMapOfRanges.get(range);
+                System.out.println(type + "---" + range + "---" + threshold);
             }
+            System.out.println("------------------------");
         }
 
 
