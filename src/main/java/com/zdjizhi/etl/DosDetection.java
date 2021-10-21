@@ -1,9 +1,6 @@
 package com.zdjizhi.etl;
 
-import com.zdjizhi.common.CommonConfig;
-import com.zdjizhi.common.DosDetectionThreshold;
-import com.zdjizhi.common.DosEventLog;
-import com.zdjizhi.common.DosSketchLog;
+import com.zdjizhi.common.*;
 import com.zdjizhi.utils.*;
 import inet.ipaddr.IPAddress;
 import inet.ipaddr.IPAddressString;
@@ -11,7 +8,6 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.text.StrBuilder;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.apache.flink.api.common.functions.RichMapFunction;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.shaded.guava18.com.google.common.collect.TreeRangeMap;
 import org.slf4j.Logger;
@@ -30,10 +26,14 @@ import java.util.concurrent.TimeUnit;
 public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
 
     private static final Logger logger = LoggerFactory.getLogger(DosDetection.class);
-    private static Map<String, Map<String, Tuple2<ArrayList<Integer>, Integer>>> baselineMap = new HashMap<>();
-    private final static int BASELINE_SIZE = 144;
+    private static Map<String, Map<String, DosBaselineThreshold>> baselineMap = new HashMap<>();
     private final static NumberFormat PERCENT_INSTANCE = NumberFormat.getPercentInstance();
     private HashMap<String, TreeRangeMap<IPAddress, DosDetectionThreshold>> thresholdRangeMap;
+
+    private final static int BASELINE_SIZE = 144;
+    private final static int STATIC_CONDITION_TYPE = 1;
+    private final static int BASELINE_CONDITION_TYPE = 2;
+    private final static int SENSITIVITY_CONDITION_TYPE = 3;
 
     @Override
     public void open(Configuration parameters) {
@@ -43,7 +43,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
             executorService.scheduleAtFixedRate(() -> thresholdRangeMap = ParseStaticThreshold.createStaticThreshold(), 0,
                     CommonConfig.STATIC_THRESHOLD_SCHEDULE_MINUTES, TimeUnit.MINUTES);
 
-            executorService.scheduleAtFixedRate(() -> baselineMap = HbaseUtils.readFromHbase(), 0,
+            executorService.scheduleAtFixedRate(() -> baselineMap = ParseBaselineThreshold.readFromHbase(), 0,
                     CommonConfig.BASELINE_THRESHOLD_SCHEDULE_DAYS, TimeUnit.DAYS);
         } catch (Exception e) {
             logger.error("定时器任务执行失败", e);
@@ -92,8 +92,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         String attackType = value.getAttack_type();
         long sketchSessions = value.getSketch_sessions();
         if (sketchSessions > CommonConfig.STATIC_SENSITIVITY_THRESHOLD) {
-            Tuple2<ArrayList<Integer>, Integer> floodTypeTup = baselineMap.get(destinationIp).get(attackType);
-            Integer base = getBaseValue(floodTypeTup, value);
+            DosBaselineThreshold dosBaselineThreshold = baselineMap.get(destinationIp).get(attackType);
+            Integer base = getBaseValue(dosBaselineThreshold, value);
             result = getDosEventLog(value, base, sketchSessions - base, 2, "sessions");
         }
         return result;
@@ -124,7 +124,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
             double percent = getDiffPercent(diff, base);
             Severity severity = judgeSeverity(percent);
             if (severity != Severity.NORMAL) {
-                if (type == 2 && percent < CommonConfig.BASELINE_SENSITIVITY_THRESHOLD) {
+                if (type == BASELINE_CONDITION_TYPE && percent < CommonConfig.BASELINE_SENSITIVITY_THRESHOLD) {
                     logger.debug("当前server IP:{},类型:{},基线值{}百分比{}未超过基线敏感阈值,日志详情\n{}", destinationIp, attackType, base, percent, value);
                 } else {
                     result = getResult(value, base, severity, percent, type, tag);
@@ -156,12 +156,12 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         return dosEventLog;
     }
 
-    private Integer getBaseValue(Tuple2<ArrayList<Integer>, Integer> floodTypeTup, DosSketchLog value) {
+    private Integer getBaseValue(DosBaselineThreshold dosBaselineThreshold, DosSketchLog value) {
         Integer base = 0;
         try {
-            if (floodTypeTup != null) {
-                ArrayList<Integer> baselines = floodTypeTup.f0;
-                Integer defaultVaule = floodTypeTup.f1;
+            if (dosBaselineThreshold != null) {
+                ArrayList<Integer> baselines = dosBaselineThreshold.getSession_rate();
+                Integer defaultVaule = dosBaselineThreshold.getSession_rate_default_value();
                 if (baselines != null && baselines.size() == BASELINE_SIZE) {
                     int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
                     base = baselines.get(timeIndex);
@@ -179,25 +179,25 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
 
     private String getConditions(String percent, long base, long sessions, int type, String tag) {
         switch (type) {
-            case 1:
+            case STATIC_CONDITION_TYPE:
                 return new StrBuilder()
                         .append(tag).append(" > ")
                         .append(base).append(" ")
                         .append(tag).append("/s")
                         .toString();
-            case 2:
+            case BASELINE_CONDITION_TYPE:
                 return new StrBuilder()
                         .append(tag).append(" > ")
                         .append(percent).append(" of baseline")
                         .toString();
-            case 3:
+            case SENSITIVITY_CONDITION_TYPE:
                 return new StrBuilder()
                         .append(sessions).append(" ")
                         .append(tag).append("/s Unusually high ")
                         .append(StringUtils.capitalize(tag))
                         .toString();
             default:
-                throw new IllegalArgumentException("Illegal Argument " + type + ", known types = [1,2,3]");
+                throw new IllegalArgumentException("Illegal Argument type:" + type + ", known types = [1,2,3]");
         }
     }
 
@@ -267,49 +267,24 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         /**
          * 判断严重程度枚举类型
          */
-        CRITICAL("Critical", 5),
-        SEVERE("Severe", 4),
-        MAJOR("Major", 3),
-        WARNING("Warning", 2),
-        MINOR("Minor", 1),
-        NORMAL("Normal", 0);
+        CRITICAL("Critical"),
+        SEVERE("Severe"),
+        MAJOR("Major"),
+        WARNING("Warning"),
+        MINOR("Minor"),
+        NORMAL("Normal");
 
         private final String severity;
-        private final int score;
 
         @Override
         public String toString() {
             return this.severity;
         }
 
-        Severity(String severity, int score) {
+        Severity(String severity) {
             this.severity = severity;
-            this.score = score;
         }
 
-    }
-
-    @Deprecated
-    private DosEventLog mergeFinalResult(Tuple2<Severity, DosEventLog> eventLogByBaseline, Tuple2<Severity, DosEventLog> eventLogByStaticThreshold) {
-        if (eventLogByBaseline.f0.score > eventLogByStaticThreshold.f0.score) {
-            logger.info("merge eventLogByBaseline {} \neventLogByStaticThreshold {}", eventLogByBaseline, eventLogByStaticThreshold);
-            return mergeCondition(eventLogByBaseline.f1, eventLogByStaticThreshold.f1);
-        } else {
-            logger.info("merge eventLogByStaticThreshold {} \neventLogByBaseline {}", eventLogByStaticThreshold, eventLogByBaseline);
-            return mergeCondition(eventLogByStaticThreshold.f1, eventLogByBaseline.f1);
-        }
-    }
-
-    @Deprecated
-    private DosEventLog mergeCondition(DosEventLog log1, DosEventLog log2) {
-        if (log1 != null && log2 != null) {
-            String conditions1 = log1.getConditions();
-            String conditions2 = log2.getConditions();
-            log1.setConditions(conditions1 + " and " + conditions2);
-        } else if (log1 == null && log2 != null) {
-            log1 = log2;
-        }
-        return log1;
     }
 
 }
