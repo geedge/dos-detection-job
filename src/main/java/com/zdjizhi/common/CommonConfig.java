@@ -3,7 +3,8 @@ package com.zdjizhi.common;
 import com.zdjizhi.utils.CommonConfigurations;
 
 /**
- * Created by wk on 2021/1/6.
+ * @author wlh
+ * @date 2021/1/6
  */
 public class CommonConfig {
 

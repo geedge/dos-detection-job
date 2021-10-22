@@ -2,7 +2,11 @@ package com.zdjizhi.common;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Objects;
 
+/**
+ * @author wlh
+ */
 public class DosDetectionThreshold implements Serializable {
     private String profileId;
     private String attackType;
@@ -25,6 +29,30 @@ public class DosDetectionThreshold implements Serializable {
                 ", sessionsPerSec=" + sessionsPerSec +
                 ", isValid=" + isValid +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DosDetectionThreshold threshold = (DosDetectionThreshold) o;
+        return packetsPerSec == threshold.packetsPerSec &&
+                bitsPerSec == threshold.bitsPerSec &&
+                sessionsPerSec == threshold.sessionsPerSec &&
+                isValid == threshold.isValid &&
+                Objects.equals(profileId, threshold.profileId) &&
+                Objects.equals(attackType, threshold.attackType) &&
+                Objects.equals(serverIpList, threshold.serverIpList) &&
+                Objects.equals(serverIpAddr, threshold.serverIpAddr);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(profileId, attackType, serverIpList, serverIpAddr, packetsPerSec, bitsPerSec, sessionsPerSec, isValid);
     }
 
     public String getProfileId() {

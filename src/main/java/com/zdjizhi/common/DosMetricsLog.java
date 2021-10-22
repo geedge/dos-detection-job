@@ -1,6 +1,7 @@
 package com.zdjizhi.common;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class DosMetricsLog implements Serializable {
 
@@ -79,5 +80,28 @@ public class DosMetricsLog implements Serializable {
                 ", bit_rate=" + bit_rate +
                 ", partition_num=" + partition_num +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DosMetricsLog)) {
+            return false;
+        }
+        DosMetricsLog that = (DosMetricsLog) o;
+        return getSketch_start_time() == that.getSketch_start_time() &&
+                getSession_rate() == that.getSession_rate() &&
+                getPacket_rate() == that.getPacket_rate() &&
+                getBit_rate() == that.getBit_rate() &&
+                getPartition_num() == that.getPartition_num() &&
+                Objects.equals(getAttack_type(), that.getAttack_type()) &&
+                Objects.equals(getDestination_ip(), that.getDestination_ip());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getSketch_start_time(), getAttack_type(), getDestination_ip(), getSession_rate(), getPacket_rate(), getBit_rate(), getPartition_num());
     }
 }

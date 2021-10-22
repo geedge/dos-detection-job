@@ -1,6 +1,7 @@
 package com.zdjizhi.common;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class DosEventLog implements Serializable {
 
@@ -139,5 +140,34 @@ public class DosEventLog implements Serializable {
                 ", packet_rate=" + packet_rate +
                 ", bit_rate=" + bit_rate +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DosEventLog)) {
+            return false;
+        }
+        DosEventLog that = (DosEventLog) o;
+        return getLog_id() == that.getLog_id() &&
+                getStart_time() == that.getStart_time() &&
+                getEnd_time() == that.getEnd_time() &&
+                getSession_rate() == that.getSession_rate() &&
+                getPacket_rate() == that.getPacket_rate() &&
+                getBit_rate() == that.getBit_rate() &&
+                Objects.equals(getAttack_type(), that.getAttack_type()) &&
+                Objects.equals(getSeverity(), that.getSeverity()) &&
+                Objects.equals(getConditions(), that.getConditions()) &&
+                Objects.equals(getDestination_ip(), that.getDestination_ip()) &&
+                Objects.equals(getDestination_country(), that.getDestination_country()) &&
+                Objects.equals(getSource_ip_list(), that.getSource_ip_list()) &&
+                Objects.equals(getSource_country_list(), that.getSource_country_list());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getLog_id(), getStart_time(), getEnd_time(), getAttack_type(), getSeverity(), getConditions(), getDestination_ip(), getDestination_country(), getSource_ip_list(), getSource_country_list(), getSession_rate(), getPacket_rate(), getBit_rate());
     }
 }

@@ -2,6 +2,7 @@ package com.zdjizhi.common;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class DosBaselineThreshold implements Serializable {
     private ArrayList<Integer> session_rate;
@@ -39,5 +40,24 @@ public class DosBaselineThreshold implements Serializable {
                 ", session_rate_baseline_type=" + session_rate_baseline_type +
                 ", session_rate_default_value=" + session_rate_default_value +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DosBaselineThreshold)) {
+            return false;
+        }
+        DosBaselineThreshold that = (DosBaselineThreshold) o;
+        return Objects.equals(getSession_rate(), that.getSession_rate()) &&
+                Objects.equals(getSession_rate_baseline_type(), that.getSession_rate_baseline_type()) &&
+                Objects.equals(getSession_rate_default_value(), that.getSession_rate_default_value());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getSession_rate(), getSession_rate_baseline_type(), getSession_rate_default_value());
     }
 }

@@ -1,6 +1,7 @@
 package com.zdjizhi.common;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class DosSketchLog implements Serializable {
 
@@ -29,6 +30,32 @@ public class DosSketchLog implements Serializable {
                 ", sketch_packets=" + sketch_packets +
                 ", sketch_bytes=" + sketch_bytes +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DosSketchLog)) {
+            return false;
+        }
+        DosSketchLog sketchLog = (DosSketchLog) o;
+        return getSketch_start_time() == sketchLog.getSketch_start_time() &&
+                getSketch_duration() == sketchLog.getSketch_duration() &&
+                getSketch_sessions() == sketchLog.getSketch_sessions() &&
+                getSketch_packets() == sketchLog.getSketch_packets() &&
+                getSketch_bytes() == sketchLog.getSketch_bytes() &&
+                Objects.equals(getCommon_sled_ip(), sketchLog.getCommon_sled_ip()) &&
+                Objects.equals(getCommon_data_center(), sketchLog.getCommon_data_center()) &&
+                Objects.equals(getAttack_type(), sketchLog.getAttack_type()) &&
+                Objects.equals(getSource_ip(), sketchLog.getSource_ip()) &&
+                Objects.equals(getDestination_ip(), sketchLog.getDestination_ip());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getCommon_sled_ip(), getCommon_data_center(), getSketch_start_time(), getSketch_duration(), getAttack_type(), getSource_ip(), getDestination_ip(), getSketch_sessions(), getSketch_packets(), getSketch_bytes());
     }
 
     public String getCommon_sled_ip() {
