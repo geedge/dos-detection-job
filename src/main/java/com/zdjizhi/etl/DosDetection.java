@@ -35,6 +35,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     private final static int BASELINE_CONDITION_TYPE = 2;
     private final static int SENSITIVITY_CONDITION_TYPE = 3;
 
+    private final static int OTHER_BASELINE_TYPE = 3;
+
     @Override
     public void open(Configuration parameters) {
         ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(2,
@@ -162,12 +164,16 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
             if (dosBaselineThreshold != null) {
                 ArrayList<Integer> baselines = dosBaselineThreshold.getSession_rate();
                 Integer defaultVaule = dosBaselineThreshold.getSession_rate_default_value();
+                Integer sessionRateBaselineType = dosBaselineThreshold.getSession_rate_baseline_type();
                 if (baselines != null && baselines.size() == BASELINE_SIZE) {
                     int timeIndex = getCurrentTimeIndex(value.getSketch_start_time());
                     base = baselines.get(timeIndex);
                     if (base == 0) {
                         logger.debug("获取到当前IP: {},类型: {} baseline值为0,替换为P95观测值{}", value.getDestination_ip(), value.getAttack_type(), defaultVaule);
                         base = defaultVaule;
+                    }
+                    if (sessionRateBaselineType == OTHER_BASELINE_TYPE && base < CommonConfig.STATIC_SENSITIVITY_THRESHOLD){
+                        base = CommonConfig.STATIC_SENSITIVITY_THRESHOLD;
                     }
                 }
             }

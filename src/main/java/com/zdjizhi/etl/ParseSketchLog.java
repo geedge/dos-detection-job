@@ -69,7 +69,7 @@ public class ParseSketchLog {
                         dosSketchLog.setSketch_packets(sketchPackets);
                         dosSketchLog.setSketch_bytes(sketchBytes);
                         collector.collect(dosSketchLog);
-                        logger.info("数据解析成功：{}",dosSketchLog.toString());
+                        logger.debug("数据解析成功：{}",dosSketchLog.toString());
                     }
                 }
             } catch (Exception e) {
