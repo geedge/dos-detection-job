@@ -123,8 +123,13 @@ public class ParseStaticThreshold {
                     String msg = resposeMap.get("msg").toString();
                     if (success) {
                         HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
-                        thresholds = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(data.get("list")), thresholdType);
-                        logger.info("获取到静态阈值配置{}条", thresholds.size());
+                        Object list = data.get("list");
+                        if (list != null) {
+                            thresholds = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(list), thresholdType);
+                            logger.info("获取到静态阈值配置{}条", thresholds.size());
+                        } else {
+                            logger.warn("静态阈值配置为空");
+                        }
                     } else {
                         logger.error(msg);
                     }
@@ -181,7 +186,7 @@ public class ParseStaticThreshold {
                             }
                         }
                     }
-                    thresholdRangeMap.put(attackType,treeRangeMap);
+                    thresholdRangeMap.put(attackType, treeRangeMap);
                 }
             }
         } catch (Exception e) {
