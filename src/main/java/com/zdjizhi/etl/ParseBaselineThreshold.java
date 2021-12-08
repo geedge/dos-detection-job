@@ -2,6 +2,7 @@ package com.zdjizhi.etl;
 
 import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosBaselineThreshold;
+import com.zdjizhi.utils.DateUtils;
 import com.zdjizhi.utils.HbaseUtils;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
@@ -12,10 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class ParseBaselineThreshold {
 
@@ -45,7 +43,11 @@ public class ParseBaselineThreshold {
         TableName tableName = TableName.valueOf(CommonConfig.HBASE_BASELINE_TABLE_NAME);
         Connection conn = ConnectionFactory.createConnection(config);
         table = conn.getTable(tableName);
-        scan = new Scan().setAllowPartialResults(true).setLimit(CommonConfig.HBASE_BASELINE_TOTAL_NUM);
+        long currentTimeMillis = System.currentTimeMillis();
+        scan = new Scan()
+                .setAllowPartialResults(true)
+                .setTimeRange(DateUtils.getSomeDate(new Date(currentTimeMillis), Math.negateExact(CommonConfig.HBASE_BASELINE_TTL)).getTime(), currentTimeMillis)
+                .setLimit(CommonConfig.HBASE_BASELINE_TOTAL_NUM);
         logger.info("连接hbase成功，正在读取baseline数据");
     }
 
@@ -81,6 +83,13 @@ public class ParseBaselineThreshold {
     }
 
     public static void main(String[] args) {
+        long currentTimeMillis = System.currentTimeMillis();
+        long p200D = DateUtils.getSomeDate(new Date(currentTimeMillis), Math.negateExact(CommonConfig.HBASE_BASELINE_TTL)).getTime();
+        System.out.println(p200D);
+        System.out.println(currentTimeMillis);
+        System.out.println(currentTimeMillis - p200D);
+
+
         Map<String, Map<String, DosBaselineThreshold>> baselineMap = readFromHbase();
         Set<String> keySet = baselineMap.keySet();
         for (String key : keySet) {

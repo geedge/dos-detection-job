@@ -35,6 +35,10 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     private final static int BASELINE_CONDITION_TYPE = 2;
     private final static int SENSITIVITY_CONDITION_TYPE = 3;
 
+    private final static String SESSIONS_TAG = "sessions";
+    private final static String PACKETS_TAG = "packets";
+    private final static String BITS_TAG = "bits";
+
     private final static int OTHER_BASELINE_TYPE = 3;
 
     @Override
@@ -82,7 +86,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         DosEventLog result = null;
         long sketchSessions = value.getSketch_sessions();
         if (sketchSessions > CommonConfig.STATIC_SENSITIVITY_THRESHOLD) {
-            result = getDosEventLog(value, CommonConfig.STATIC_SENSITIVITY_THRESHOLD, sketchSessions - CommonConfig.STATIC_SENSITIVITY_THRESHOLD, 3, "sessions");
+            long diff = sketchSessions - CommonConfig.STATIC_SENSITIVITY_THRESHOLD;
+            result = getDosEventLog(value, CommonConfig.STATIC_SENSITIVITY_THRESHOLD, diff, SENSITIVITY_CONDITION_TYPE, SESSIONS_TAG);
             result.setSeverity(Severity.MAJOR.severity);
         }
         return result;
@@ -96,7 +101,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         if (sketchSessions > CommonConfig.STATIC_SENSITIVITY_THRESHOLD) {
             DosBaselineThreshold dosBaselineThreshold = baselineMap.get(destinationIp).get(attackType);
             Integer base = getBaseValue(dosBaselineThreshold, value);
-            result = getDosEventLog(value, base, sketchSessions - base, 2, "sessions");
+            long diff = sketchSessions - base;
+            result = getDosEventLog(value, base, diff, BASELINE_CONDITION_TYPE, SESSIONS_TAG);
         }
         return result;
     }
@@ -104,15 +110,15 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     private DosEventLog getDosEventLogByStaticThreshold(DosSketchLog value, DosDetectionThreshold threshold) {
         long base = threshold.getSessionsPerSec();
         long diff = value.getSketch_sessions() - base;
-        DosEventLog result = getDosEventLog(value, base, diff, 1, "sessions");
+        DosEventLog result = getDosEventLog(value, base, diff, STATIC_CONDITION_TYPE, SESSIONS_TAG);
         if (result == null) {
             base = threshold.getPacketsPerSec();
             diff = value.getSketch_packets() - base;
-            result = getDosEventLog(value, base, diff, 1, "packets");
+            result = getDosEventLog(value, base, diff, STATIC_CONDITION_TYPE, PACKETS_TAG);
             if (result == null) {
                 base = threshold.getBitsPerSec();
                 diff = value.getSketch_bytes() - base;
-                result = getDosEventLog(value, base, diff, 1, "bits");
+                result = getDosEventLog(value, base, diff, STATIC_CONDITION_TYPE, BITS_TAG);
             }
         }
         return result;
@@ -129,7 +135,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
                 if (type == BASELINE_CONDITION_TYPE && percent < CommonConfig.BASELINE_SENSITIVITY_THRESHOLD) {
                     logger.debug("当前server IP:{},类型:{},基线值{}百分比{}未超过基线敏感阈值,日志详情\n{}", destinationIp, attackType, base, percent, value);
                 } else {
-                    result = getResult(value, base, severity, percent, type, tag);
+                    result = getResult(value, base, severity, percent+1, type, tag);
                     logger.info("检测到当前server IP {} 存在 {} 异常,超出基线{} {}倍,基于{}:{}检测,日志详情\n {}", destinationIp,attackType,base,percent,type,tag,result);
                 }
             } else {
@@ -214,9 +220,12 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
                 String[] ipArr = sourceIpList.split(",");
                 HashSet<String> countrySet = new HashSet<>();
                 for (String ip : ipArr) {
-                    countrySet.add(IpUtils.ipLookup.countryLookup(ip));
+                    String country = IpUtils.ipLookup.countryLookup(ip);
+                    if (StringUtil.isNotBlank(country)){
+                        countrySet.add(country);
+                    }
                 }
-                countryList = StringUtils.join(countrySet, ",");
+                countryList = StringUtils.join(countrySet, ", ");
                 return countryList;
             } catch (Exception e) {
                 logger.error("{} source IP lists 获取国家失败", sourceIpList, e);
@@ -240,13 +249,11 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     }
 
     public static void main(String[] args) {
-        Date date = new Date(1631548860 * 1000L);
-        System.out.println(date);
-        Date p1D = DateUtils.getTimeFloor(date, "P1D");
-        System.out.println(p1D + " " + p1D.getTime() / 1000);
-        System.out.println(new DosDetection().getCurrentTimeIndex(1634659080));
-        System.out.println(new DosDetection().getConditions(PERCENT_INSTANCE.format(1.64862), 100, 100, 3, "packets"));
-        System.out.println(10 + 10 * 0.2);
+//        System.out.println(new DosDetection().getSourceCountryList("192.0.2.3,138.199.14.31,255.255.255.255,121.14.89.209," +
+//                "23.200.74.224,161.117.68.253"));
+//        DosDetection dosDetection = new DosDetection();
+//        System.out.println(dosDetection.judgeSeverity(dosDetection.getDiffPercent(499, 1000)));
+
     }
 
     private Double getDiffPercent(long diff, long base) {
