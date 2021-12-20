@@ -1,12 +1,19 @@
 package com.zdjizhi.common;
 
 import com.zdjizhi.utils.CommonConfigurations;
+import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
 
 /**
  * @author wlh
  * @date 2021/1/6
  */
 public class CommonConfig {
+
+    private static StandardPBEStringEncryptor encryptor = new StandardPBEStringEncryptor();
+
+    static {
+        encryptor.setPassword("galaxy");
+    }
 
     public static final int STREAM_EXECUTION_ENVIRONMENT_PARALLELISM = CommonConfigurations.getIntProperty("stream.execution.environment.parallelism");
     public static final String STREAM_EXECUTION_JOB_NAME = CommonConfigurations.getStringProperty("stream.execution.job.name");
@@ -66,7 +73,20 @@ public class CommonConfig {
     public static final int BASELINE_THRESHOLD_SCHEDULE_DAYS = CommonConfigurations.getIntProperty("baseline.threshold.schedule.days");
 
     public static final String SASL_JAAS_CONFIG_USER = CommonConfigurations.getStringProperty("sasl.jaas.config.user");
-    public static final String SASL_JAAS_CONFIG_PASSWORD = CommonConfigurations.getStringProperty("sasl.jaas.config.password");
+    public static final String SASL_JAAS_CONFIG_PASSWORD = encryptor.decrypt(CommonConfigurations.getStringProperty("sasl.jaas.config.password"));
 
     public static final int SASL_JAAS_CONFIG_FLAG = CommonConfigurations.getIntProperty("sasl.jaas.config.flag");
+
+    public static void main(String[] args) {
+        StandardPBEStringEncryptor encryptor = new StandardPBEStringEncryptor();
+        // 配置加密解密的密码/salt值
+        encryptor.setPassword("galaxy");
+        // 对"raw_password"进行加密：S5kR+Y7CI8k7MaecZpde25yK8NKUnd6p
+        String password = "galaxy2019";
+        String encPwd = encryptor.encrypt(password);
+        System.out.println(encPwd);
+        // 再进行解密：raw_password
+        String rawPwd = encryptor.decrypt(encPwd);
+        System.out.println(rawPwd);
+    }
 }
