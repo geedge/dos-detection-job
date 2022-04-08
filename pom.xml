@@ -148,6 +148,10 @@
                     <artifactId>jdk.tools</artifactId>
                     <groupId>jdk.tools</groupId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>guava</artifactId>
+                    <groupId>com.google.guava</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -222,6 +226,25 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <!--<dependency>-->
+            <!--<groupId>com.alibaba.nacos</groupId>-->
+            <!--<artifactId>nacos-client</artifactId>-->
+            <!--<version>1.4.1</version>-->
+        <!--</dependency>-->
+
+        <dependency>
+            <groupId>com.alibaba.nacos</groupId>
+            <artifactId>nacos-client</artifactId>
+            <version>1.2.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+        </dependency>
+
     </dependencies>
 
 

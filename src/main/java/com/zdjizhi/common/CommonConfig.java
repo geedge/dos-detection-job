@@ -1,6 +1,7 @@
 package com.zdjizhi.common;
 
 import com.zdjizhi.utils.CommonConfigurations;
+import com.zdjizhi.utils.NacosUtils;
 import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
 
 /**
@@ -48,14 +49,14 @@ public class CommonConfig {
 
     public static final String IP_MMDB_PATH = CommonConfigurations.getStringProperty("ip.mmdb.path");
 
-    public static final int STATIC_SENSITIVITY_THRESHOLD = CommonConfigurations.getIntProperty("static.sensitivity.threshold");
-    public static final double BASELINE_SENSITIVITY_THRESHOLD = CommonConfigurations.getDoubleProperty("baseline.sensitivity.threshold");
+    public static final int STATIC_SENSITIVITY_THRESHOLD = NacosUtils.getIntProperty("static.sensitivity.threshold");
+    public static final double BASELINE_SENSITIVITY_THRESHOLD = NacosUtils.getDoubleProperty("baseline.sensitivity.threshold");
 
-    public static final double BASELINE_SESSIONS_MINOR_THRESHOLD = CommonConfigurations.getDoubleProperty("baseline.sessions.minor.threshold");
-    public static final double BASELINE_SESSIONS_WARNING_THRESHOLD = CommonConfigurations.getDoubleProperty("baseline.sessions.warning.threshold");
-    public static final double BASELINE_SESSIONS_MAJOR_THRESHOLD = CommonConfigurations.getDoubleProperty("baseline.sessions.major.threshold");
-    public static final double BASELINE_SESSIONS_SEVERE_THRESHOLD = CommonConfigurations.getDoubleProperty("baseline.sessions.severe.threshold");
-    public static final double BASELINE_SESSIONS_CRITICAL_THRESHOLD = CommonConfigurations.getDoubleProperty("baseline.sessions.critical.threshold");
+    public static final double BASELINE_SESSIONS_MINOR_THRESHOLD = NacosUtils.getDoubleProperty("baseline.sessions.minor.threshold");
+    public static final double BASELINE_SESSIONS_WARNING_THRESHOLD = NacosUtils.getDoubleProperty("baseline.sessions.warning.threshold");
+    public static final double BASELINE_SESSIONS_MAJOR_THRESHOLD = NacosUtils.getDoubleProperty("baseline.sessions.major.threshold");
+    public static final double BASELINE_SESSIONS_SEVERE_THRESHOLD = NacosUtils.getDoubleProperty("baseline.sessions.severe.threshold");
+    public static final double BASELINE_SESSIONS_CRITICAL_THRESHOLD = NacosUtils.getDoubleProperty("baseline.sessions.critical.threshold");
 
     public static final String BIFANG_SERVER_URI = CommonConfigurations.getStringProperty("bifang.server.uri");
     public static final String BIFANG_SERVER_TOKEN = CommonConfigurations.getStringProperty("bifang.server.token");
@@ -82,7 +83,8 @@ public class CommonConfig {
         // 配置加密解密的密码/salt值
         encryptor.setPassword("galaxy");
         // 对"raw_password"进行加密：S5kR+Y7CI8k7MaecZpde25yK8NKUnd6p
-        String password = "galaxy2019";
+//        String password = "galaxy2019";
+        String password = "nacos";
         String encPwd = encryptor.encrypt(password);
         System.out.println(encPwd);
         // 再进行解密：raw_password

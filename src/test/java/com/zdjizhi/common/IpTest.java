@@ -41,14 +41,18 @@ public class IpTest {
         IPAddress pv43 = new IPAddressString("fc00::").getAddress();
         IPAddress pv44 = new IPAddressString("fc00::10:1").getAddress();
 
-        IPAddress pv45 = new IPAddressString("192.168.42.1/32").getAddress();
+        IPAddress pv45 = new IPAddressString("192.168.42.1").getAddress();
         IPAddress pv46 = new IPAddressString("192.168.42.1/32").getAddress();
         IPAddress pv47 = new IPAddressString("12.56.4.0").getAddress();
+
+        IPAddress mask = pv45.getNetwork().getNetworkMask(24, false);
+
         System.out.println(pv45.isMultiple());
         System.out.println(pv46.isMultiple());
         System.out.println(pv46.isPrefixed());
         System.out.println(pv47.isPrefixed());
         System.out.println(pv45+"---"+pv45.toMaxHost().withoutPrefixLength()+"---"+pv45.adjustPrefixLength(pv45.getBitCount()));
+        System.out.println(pv45+"---mask:"+pv45.mask(mask).toString());
 
         System.out.println(pv45.adjustPrefixLength(pv45.getBitCount())+"---"+pv45.toMaxHost().withoutPrefixLength());
 
