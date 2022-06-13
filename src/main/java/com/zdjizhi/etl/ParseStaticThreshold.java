@@ -101,7 +101,7 @@ public class ParseStaticThreshold {
     }
 
     /**
-     * 获取vsysId配置列表，只需要拿到id的集合，输出出去即可
+     * 获取vsysId配置列表
      *
      * @return vsysIdList
      */
@@ -143,22 +143,23 @@ public class ParseStaticThreshold {
     }
 
     /**
-     * 获取静态阈值配置列表，遍历id的集合，并将每个id放入请求体中
+     * 根据vsysId获取静态阈值配置列表
      *
      * @return thresholds
      */
     private static ArrayList<DosDetectionThreshold> getDosDetectionThreshold() {
         ArrayList<DosDetectionThreshold> thresholds = null;
-        ArrayList<DosVsysId> vsysId = getVsysId();
+//        ArrayList<DosVsysId> vsysId = getVsysId();
         try {
-            if (vsysId != null){
-             for (DosVsysId dosVsysId : vsysId) {
+//            if (vsysId != null){
+//             for (DosVsysId dosVsysId : vsysId) {
                      URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
                      HashMap<String, Object> parms = new HashMap<>();
                      parms.put("pageSize", -1);
                      parms.put("orderBy", "profileId asc");
                      parms.put("isValid", 1);
-                     parms.put("vsysId", dosVsysId.getVsysId());
+//                     parms.put("vsysId", dosVsysId.getVsysId());
+                     parms.put("vsysId", 1);
                      HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH, parms);
                      String token = CommonConfig.BIFANG_SERVER_TOKEN;
                      if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
@@ -183,8 +184,8 @@ public class ParseStaticThreshold {
                              }
                          }
                      }
-             }
-            }
+//             }
+//            }
         } catch (Exception e) {
             logger.error("获取静态阈值配置失败,请检查bifang服务或登录配置信息 ", e);
         }
@@ -247,8 +248,6 @@ public class ParseStaticThreshold {
     }
 
     public static void main(String[] args) {
-//        ArrayList<DosVsysId> vsysId = getVsysId();
-//        vsysId.forEach(System.out::println);
         ArrayList<DosDetectionThreshold> dosDetectionThreshold = getDosDetectionThreshold();
         dosDetectionThreshold.forEach(System.out::println);
 
