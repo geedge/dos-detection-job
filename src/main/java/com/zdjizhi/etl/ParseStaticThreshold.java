@@ -3,6 +3,7 @@ package com.zdjizhi.etl;
 import com.fasterxml.jackson.databind.JavaType;
 import com.zdjizhi.common.CommonConfig;
 import com.zdjizhi.common.DosDetectionThreshold;
+import com.zdjizhi.common.DosVsysId;
 import com.zdjizhi.utils.HttpClientUtils;
 import com.zdjizhi.utils.JsonMapper;
 import inet.ipaddr.IPAddress;
@@ -29,6 +30,7 @@ public class ParseStaticThreshold {
     private static JsonMapper jsonMapperInstance = JsonMapper.getInstance();
     private static JavaType hashmapJsonType = jsonMapperInstance.createCollectionType(HashMap.class, String.class, Object.class);
     private static JavaType thresholdType = jsonMapperInstance.createCollectionType(ArrayList.class, DosDetectionThreshold.class);
+    private static JavaType vsysIDType = jsonMapperInstance.createCollectionType(ArrayList.class, DosVsysId.class);
 
     static {
         //加载加密登录密码
@@ -99,19 +101,18 @@ public class ParseStaticThreshold {
     }
 
     /**
-     * 获取静态阈值配置列表
+     * 获取vsysId配置列表
      *
-     * @return thresholds
+     * @return vsysIdList
      */
-    private static ArrayList<DosDetectionThreshold> getDosDetectionThreshold() {
-        ArrayList<DosDetectionThreshold> thresholds = null;
+    private static ArrayList<DosVsysId> getVsysId() {
+        ArrayList<DosVsysId> vsysIdList = null;
         try {
             URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
             HashMap<String, Object> parms = new HashMap<>();
             parms.put("pageSize", -1);
-            parms.put("orderBy", "profileId asc");
-            parms.put("isValid", 1);
-            HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH, parms);
+            parms.put("orderBy", "vsysId desc");
+            HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_VSYSID_PATH, parms);
             String token = CommonConfig.BIFANG_SERVER_TOKEN;
             if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
                 BasicHeader authorization = new BasicHeader("Authorization", token);
@@ -125,10 +126,10 @@ public class ParseStaticThreshold {
                         HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
                         Object list = data.get("list");
                         if (list != null) {
-                            thresholds = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(list), thresholdType);
-                            logger.info("获取到静态阈值配置{}条", thresholds.size());
+                            vsysIdList = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(list), vsysIDType);
+                            logger.info("获取到vsysId{}条", vsysIdList.size());
                         } else {
-                            logger.warn("静态阈值配置为空");
+                            logger.warn("vsysIdList为空");
                         }
                     } else {
                         logger.error(msg);
@@ -136,8 +137,59 @@ public class ParseStaticThreshold {
                 }
             }
         } catch (Exception e) {
+            logger.error("获取vsysId失败,请检查bifang服务或登录配置信息 ", e);
+        }
+        return vsysIdList;
+    }
+
+    /**
+     * 根据vsysId获取静态阈值配置列表
+     *
+     * @return thresholds
+     */
+    private static ArrayList<DosDetectionThreshold> getDosDetectionThreshold() {
+        ArrayList<DosDetectionThreshold> thresholds = null;
+//        ArrayList<DosVsysId> vsysId = getVsysId();
+        try {
+//            if (vsysId != null){
+//             for (DosVsysId dosVsysId : vsysId) {
+                     URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
+                     HashMap<String, Object> parms = new HashMap<>();
+                     parms.put("pageSize", -1);
+                     parms.put("orderBy", "profileId asc");
+                     parms.put("isValid", 1);
+//                     parms.put("vsysId", dosVsysId.getVsysId());
+                     parms.put("vsysId", 1);
+                     HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH, parms);
+                     String token = CommonConfig.BIFANG_SERVER_TOKEN;
+                     if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
+                         BasicHeader authorization = new BasicHeader("Authorization", token);
+                         BasicHeader authorization1 = new BasicHeader("Content-Type", "application/x-www-form-urlencoded");
+                         String resposeJsonStr = HttpClientUtils.httpGet(uriBuilder.build(), authorization, authorization1);
+                         if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)) {
+                             HashMap<String, Object> resposeMap = jsonMapperInstance.fromJson(resposeJsonStr, hashmapJsonType);
+                             boolean success = (boolean) resposeMap.get("success");
+                             String msg = resposeMap.get("msg").toString();
+                             if (success) {
+                                 HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
+                                 Object list = data.get("list");
+                                 if (list != null) {
+                                     thresholds = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(list), thresholdType);
+                                     logger.info("获取到静态阈值配置{}条", thresholds.size());
+                                 } else {
+                                     logger.warn("静态阈值配置为空");
+                                 }
+                             } else {
+                                 logger.error(msg);
+                             }
+                         }
+                     }
+//             }
+//            }
+        } catch (Exception e) {
             logger.error("获取静态阈值配置失败,请检查bifang服务或登录配置信息 ", e);
         }
+
         return thresholds;
     }
 
@@ -196,7 +248,6 @@ public class ParseStaticThreshold {
     }
 
     public static void main(String[] args) {
-
         ArrayList<DosDetectionThreshold> dosDetectionThreshold = getDosDetectionThreshold();
         dosDetectionThreshold.forEach(System.out::println);
 
@@ -214,7 +265,8 @@ public class ParseStaticThreshold {
             }
             System.out.println("------------------------");
         }
-
+//        String s = loginBifangServer();
+//        System.out.println(s);
 
     }
 

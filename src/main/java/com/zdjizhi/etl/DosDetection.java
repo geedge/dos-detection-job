@@ -193,7 +193,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         switch (type) {
             case STATIC_CONDITION_TYPE:
                 return new StrBuilder()
-                        .append(tag).append(" > ")
+                        .append("Rate > ")
                         .append(base).append(" ")
                         .append(tag).append("/s")
                         .toString();
