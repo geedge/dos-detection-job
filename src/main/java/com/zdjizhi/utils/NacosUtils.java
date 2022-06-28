@@ -53,6 +53,7 @@ public class NacosUtils {
                 @Override
                 public void receiveConfigInfo(String configMsg) {
                     try {
+                        commonProperties.clear();
                         commonProperties.load(new StringReader(configMsg));
                     } catch (IOException e) {
                         logger.error("监听nacos配置失败", e);

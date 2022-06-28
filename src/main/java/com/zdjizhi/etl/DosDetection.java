@@ -85,9 +85,9 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     private DosEventLog getDosEventLogBySensitivityThreshold(DosSketchLog value) {
         DosEventLog result = null;
         long sketchSessions = value.getSketch_sessions();
-        if (sketchSessions > CommonConfig.STATIC_SENSITIVITY_THRESHOLD) {
-            long diff = sketchSessions - CommonConfig.STATIC_SENSITIVITY_THRESHOLD;
-            result = getDosEventLog(value, CommonConfig.STATIC_SENSITIVITY_THRESHOLD, diff, SENSITIVITY_CONDITION_TYPE, SESSIONS_TAG);
+        if (sketchSessions > NacosUtils.getIntProperty("static.sensitivity.threshold")) {
+            long diff = sketchSessions - NacosUtils.getIntProperty("static.sensitivity.threshold");
+            result = getDosEventLog(value, NacosUtils.getIntProperty("static.sensitivity.threshold"), diff, SENSITIVITY_CONDITION_TYPE, SESSIONS_TAG);
             result.setSeverity(Severity.MAJOR.severity);
         }
         return result;
@@ -98,7 +98,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
         String destinationIp = value.getDestination_ip();
         String attackType = value.getAttack_type();
         long sketchSessions = value.getSketch_sessions();
-        if (sketchSessions > CommonConfig.STATIC_SENSITIVITY_THRESHOLD) {
+        if (sketchSessions > NacosUtils.getIntProperty("static.sensitivity.threshold")) {
             DosBaselineThreshold dosBaselineThreshold = baselineMap.get(destinationIp).get(attackType);
             Integer base = getBaseValue(dosBaselineThreshold, value);
             long diff = sketchSessions - base;
@@ -132,7 +132,7 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
             double percent = getDiffPercent(diff, base);
             Severity severity = judgeSeverity(percent);
             if (severity != Severity.NORMAL) {
-                if (type == BASELINE_CONDITION_TYPE && percent < CommonConfig.BASELINE_SENSITIVITY_THRESHOLD) {
+                if (type == BASELINE_CONDITION_TYPE && percent < NacosUtils.getDoubleProperty("baseline.sensitivity.threshold")) {
                     logger.debug("当前server IP:{},类型:{},基线值{}百分比{}未超过基线敏感阈值,日志详情\n{}", destinationIp, attackType, base, percent, value);
                 } else {
                     result = getResult(value, base, severity, percent+1, type, tag);
@@ -178,8 +178,8 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
                         logger.debug("获取到当前IP: {},类型: {} baseline值为0,替换为P95观测值{}", value.getDestination_ip(), value.getAttack_type(), defaultVaule);
                         base = defaultVaule;
                     }
-                    if (sessionRateBaselineType == OTHER_BASELINE_TYPE && base < CommonConfig.STATIC_SENSITIVITY_THRESHOLD){
-                        base = CommonConfig.STATIC_SENSITIVITY_THRESHOLD;
+                    if (sessionRateBaselineType == OTHER_BASELINE_TYPE && base < NacosUtils.getIntProperty("static.sensitivity.threshold")){
+                        base = NacosUtils.getIntProperty("static.sensitivity.threshold");
                     }
                 }
             }
@@ -261,15 +261,15 @@ public class DosDetection extends RichMapFunction<DosSketchLog, DosEventLog> {
     }
 
     private Severity judgeSeverity(double diffPercent) {
-        if (diffPercent >= CommonConfig.BASELINE_SESSIONS_MINOR_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_WARNING_THRESHOLD) {
+        if (diffPercent >= NacosUtils.getDoubleProperty("baseline.sessions.minor.threshold") && diffPercent < NacosUtils.getDoubleProperty("baseline.sessions.warning.threshold")) {
             return Severity.MINOR;
-        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_WARNING_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_MAJOR_THRESHOLD) {
+        } else if (diffPercent >= NacosUtils.getDoubleProperty("baseline.sessions.warning.threshold") && diffPercent < NacosUtils.getDoubleProperty("baseline.sessions.major.threshold")) {
             return Severity.WARNING;
-        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_MAJOR_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_SEVERE_THRESHOLD) {
+        } else if (diffPercent >= NacosUtils.getDoubleProperty("baseline.sessions.major.threshold") && diffPercent < NacosUtils.getDoubleProperty("baseline.sessions.severe.threshold")) {
             return Severity.MAJOR;
-        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_SEVERE_THRESHOLD && diffPercent < CommonConfig.BASELINE_SESSIONS_CRITICAL_THRESHOLD) {
+        } else if (diffPercent >= NacosUtils.getDoubleProperty("baseline.sessions.severe.threshold") && diffPercent < NacosUtils.getDoubleProperty("baseline.sessions.critical.threshold")) {
             return Severity.SEVERE;
-        } else if (diffPercent >= CommonConfig.BASELINE_SESSIONS_CRITICAL_THRESHOLD) {
+        } else if (diffPercent >= NacosUtils.getDoubleProperty("baseline.sessions.critical.threshold")) {
             return Severity.CRITICAL;
         } else {
             return Severity.NORMAL;
