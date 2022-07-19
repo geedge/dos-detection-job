@@ -6,6 +6,7 @@ import com.zdjizhi.common.DosDetectionThreshold;
 import com.zdjizhi.common.DosVsysId;
 import com.zdjizhi.utils.HttpClientUtils;
 import com.zdjizhi.utils.JsonMapper;
+import com.zdjizhi.utils.NacosUtils;
 import inet.ipaddr.IPAddress;
 import inet.ipaddr.IPAddressString;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Range;
@@ -113,7 +114,7 @@ public class ParseStaticThreshold {
             parms.put("pageSize", -1);
             parms.put("orderBy", "vsysId desc");
             HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_VSYSID_PATH, parms);
-            String token = CommonConfig.BIFANG_SERVER_TOKEN;
+            String token = NacosUtils.getStringProperty("bifang.server.token");
             if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
                 BasicHeader authorization = new BasicHeader("Authorization", token);
                 BasicHeader authorization1 = new BasicHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -153,37 +154,37 @@ public class ParseStaticThreshold {
         try {
 //            if (vsysId != null){
 //             for (DosVsysId dosVsysId : vsysId) {
-                     URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
-                     HashMap<String, Object> parms = new HashMap<>();
-                     parms.put("pageSize", -1);
-                     parms.put("orderBy", "profileId asc");
-                     parms.put("isValid", 1);
+            URIBuilder uriBuilder = new URIBuilder(CommonConfig.BIFANG_SERVER_URI);
+            HashMap<String, Object> parms = new HashMap<>();
+            parms.put("pageSize", -1);
+            parms.put("orderBy", "profileId asc");
+            parms.put("isValid", 1);
 //                     parms.put("vsysId", dosVsysId.getVsysId());
-                     parms.put("vsysId", 1);
-                     HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH, parms);
-                     String token = CommonConfig.BIFANG_SERVER_TOKEN;
-                     if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
-                         BasicHeader authorization = new BasicHeader("Authorization", token);
-                         BasicHeader authorization1 = new BasicHeader("Content-Type", "application/x-www-form-urlencoded");
-                         String resposeJsonStr = HttpClientUtils.httpGet(uriBuilder.build(), authorization, authorization1);
-                         if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)) {
-                             HashMap<String, Object> resposeMap = jsonMapperInstance.fromJson(resposeJsonStr, hashmapJsonType);
-                             boolean success = (boolean) resposeMap.get("success");
-                             String msg = resposeMap.get("msg").toString();
-                             if (success) {
-                                 HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
-                                 Object list = data.get("list");
-                                 if (list != null) {
-                                     thresholds = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(list), thresholdType);
-                                     logger.info("获取到静态阈值配置{}条", thresholds.size());
-                                 } else {
-                                     logger.warn("静态阈值配置为空");
-                                 }
-                             } else {
-                                 logger.error(msg);
-                             }
-                         }
-                     }
+            parms.put("vsysId", 1);
+            HttpClientUtils.setUrlWithParams(uriBuilder, CommonConfig.BIFANG_SERVER_POLICY_THRESHOLD_PATH, parms);
+            String token = NacosUtils.getStringProperty("bifang.server.token");
+            if (!HttpClientUtils.ERROR_MESSAGE.equals(token)) {
+                BasicHeader authorization = new BasicHeader("Authorization", token);
+                BasicHeader authorization1 = new BasicHeader("Content-Type", "application/x-www-form-urlencoded");
+                String resposeJsonStr = HttpClientUtils.httpGet(uriBuilder.build(), authorization, authorization1);
+                if (!HttpClientUtils.ERROR_MESSAGE.equals(resposeJsonStr)) {
+                    HashMap<String, Object> resposeMap = jsonMapperInstance.fromJson(resposeJsonStr, hashmapJsonType);
+                    boolean success = (boolean) resposeMap.get("success");
+                    String msg = resposeMap.get("msg").toString();
+                    if (success) {
+                        HashMap<String, Object> data = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(resposeMap.get("data")), hashmapJsonType);
+                        Object list = data.get("list");
+                        if (list != null) {
+                            thresholds = jsonMapperInstance.fromJson(jsonMapperInstance.toJson(list), thresholdType);
+                            logger.info("获取到静态阈值配置{}条", thresholds.size());
+                        } else {
+                            logger.warn("静态阈值配置为空");
+                        }
+                    } else {
+                        logger.error(msg);
+                    }
+                }
+            }
 //             }
 //            }
         } catch (Exception e) {

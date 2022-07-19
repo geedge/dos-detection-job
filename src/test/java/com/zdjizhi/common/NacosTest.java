@@ -41,7 +41,7 @@ public class NacosTest {
 
     private void getProperties() {
         properties.setProperty(PropertyKeyConst.SERVER_ADDR, "192.168.44.12:8848");
-        properties.setProperty(PropertyKeyConst.NAMESPACE, "flink");
+        properties.setProperty(PropertyKeyConst.NAMESPACE, "test");
         properties.setProperty(PropertyKeyConst.USERNAME, "nacos");
         properties.setProperty(PropertyKeyConst.PASSWORD, "nacos");
     }
@@ -56,7 +56,7 @@ public class NacosTest {
             Properties nacosConfigMap = new Properties();
             nacosConfigMap.load(new StringReader(content));
             System.out.println(nacosConfigMap.getProperty("static.sensitivity.threshold"));
-        } catch (NacosException | IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -83,7 +83,7 @@ public class NacosTest {
                     System.out.println(configMsg);
                 }
             });
-        } catch (NacosException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
